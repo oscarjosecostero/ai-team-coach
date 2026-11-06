@@ -49,7 +49,7 @@ export type ProposalView = ProposalRow & {
   workout: (WorkoutFields & { id: string; plannedLoad: number; version: number }) | null;
 };
 
-async function toViews(db: Db, rows: ProposalRow[]): Promise<ProposalView[]> {
+export async function toProposalViews(db: Db, rows: ProposalRow[]): Promise<ProposalView[]> {
   const workouts = new Map((await plannedWorkoutsRepo.getByIds(db, [...new Set(rows.map((r) => r.plannedWorkoutId))])).map((w) => [w.id, w]));
   const names = new Map<string, string>();
   for (const id of new Set(rows.map((r) => r.userId))) names.set(id, (await usersRepo.findById(db, id))?.name ?? 'Unknown');
@@ -64,15 +64,15 @@ export const proposalService = {
     const { db } = deps;
     if (actor.role === 'coach') {
       const all = await proposalsRepo.listForTeam(db, actor.teamId, opts.status);
-      return toViews(db, opts.athleteId ? all.filter((p) => p.userId === opts.athleteId) : all);
+      return toProposalViews(db, opts.athleteId ? all.filter((p) => p.userId === opts.athleteId) : all);
     }
     if (opts.athleteId && opts.athleteId !== actor.id) throw forbidden();
     const rows = await proposalsRepo.listForUser(db, actor.id, opts.status);
-    return toViews(db, rows.filter((p) => p.status !== 'awaiting_coach'));
+    return toProposalViews(db, rows.filter((p) => p.status !== 'awaiting_coach'));
   },
 
   async get(deps: ProposalDeps, actor: Actor, id: string): Promise<ProposalView> {
-    const [view] = await toViews(deps.db, [await loadVisible(deps.db, actor, id)]);
+    const [view] = await toProposalViews(deps.db, [await loadVisible(deps.db, actor, id)]);
     return view!;
   },
 

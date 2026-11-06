@@ -104,17 +104,6 @@ export type Proposal = {
   workout: (Omit<PlannedWorkout, "status" | "origin"> & { version: number }) | null;
 };
 
-export type AnalysisResult = {
-  runId: string;
-  kind: "post_activity" | "weekly";
-  model: string;
-  status: "succeeded" | "failed";
-  summary: string;
-  citations: Fact[];
-  proposals: Proposal[];
-  error: string | null;
-};
-
 export type AgentRun = {
   id: string;
   kind: "post_activity" | "weekly" | "chat";
@@ -123,10 +112,14 @@ export type AgentRun = {
   status: "running" | "succeeded" | "failed";
   startedAt: string;
   finishedAt: string | null;
+  error: string | null;
   summary: string | null;
   citations: Fact[];
   proposalIds: string[];
 };
+
+/** GET /analysis/runs/:id: one run plus the proposals it created (those this viewer may see). */
+export type AgentRunDetail = AgentRun & { proposals: Proposal[] };
 
 export type ChatMessage = { id: string; role: "user" | "assistant"; content: string; createdAt: string; citations: Fact[] };
 

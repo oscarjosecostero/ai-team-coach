@@ -13,7 +13,7 @@ Context PDFs live in `_context/` (git-ignored, never commit them).
 | 2. API + auth + approval | ✅ Done | Gate green: 91 tests (35 new: auth, RBAC, accept/reject/stale/concurrent, coach review, uploads), typecheck, lint, build. |
 | 3. Agent | 🟡 Built, gate blocked | 138 tests green (47 new, fake LLM: allowlist, invalid JSON, unknown fact IDs, ±10%, injury), typecheck, lint. `npm run agent:smoke` blocked: Anthropic account has no credits. |
 | 4. Frontend | ✅ Done | Gate green: `next build`, Playwright happy path (demo login → proposal → accept → calendar updated) + account-switch regression, 139 API tests. In CI. |
-| 5. Deploy + README | ⬜ | |
+| 5. Deploy + README | 🟡 Ready to deploy | Dockerfile (verified locally), async analysis, daily demo reseed, README, `docs/deploy.md`, Loom script. Pending: Railway + Vercel setup (Oscar's accounts) and the live Playwright run. |
 
 Update this table (and add a short "Phase log" entry at the bottom) when a phase gate passes.
 
@@ -219,7 +219,7 @@ GET  /dashboard             GET  /activities            POST /uploads/activity (
 GET  /calendar?from&to      POST /checkins
 GET  /proposals?status      POST /proposals/:id/accept  POST /proposals/:id/reject
 POST /proposals/:id/coach-review   (coach: approve/edit → pending)
-POST /analysis/run          (manual trigger)   GET /analysis/runs
+POST /analysis/run          (manual trigger, 202 + poll)   GET /analysis/runs   GET /analysis/runs/:id
 GET  /chat                  POST /chat
 GET  /team/ranking          GET  /team/proposals (coach)
 GET  /health
@@ -303,3 +303,9 @@ Strava adapter (personal use only), webhooks, MCP server reusing `ai/tools/regis
   - E2E: `web/playwright.config.ts` starts the API on :4100 against a fresh `coach_e2e` database and `next dev` on :3100. The fixture (`api/test/e2e/seed-e2e.ts`) creates Carlos' proposal by running the real agent loop, tools and guarded write path with the scripted model, so no API key is needed. `SCREENSHOTS=1 npx playwright test` saves light/dark/mobile screenshots to `web/e2e/screenshots/` (git-ignored). `E2E_BASE_URL` points the same spec at a deployed site (Phase 5 gate).
   - Next 16 specifics we hit: (a) with Cache Components the signed-in layout must always render its page (an auth gate that swaps the page for "Loading…" drops the segment from the static shell); the session is `null` while `/auth/me` loads and each view shows its own skeleton; (b) Next keeps visited routes alive with React `<Activity>`, so transient state (the login page's "busy" flag, the password) is reset in a `useLayoutEffect` cleanup; a regression test covers athlete → coach → athlete.
   - Phase 5 notes: set `API_URL` on Vercel at build time; check Vercel's own timeout for external rewrites against the synchronous `POST /analysis/run` (or make it async with polling).
+- 2026-11-06 — Phase 5 prepared (deploy pending Oscar's Railway/Vercel accounts). Committed Phases 3 and 4 separately.
+  - `POST /analysis/run` is now asynchronous: `202 { run }`, then `GET /analysis/runs/:id` (run + visible proposals). Reason: Vercel's external rewrites wait at most 120 s and a weekly Sonnet review can take longer. A second click while a run is in progress returns that run; `onClose` waits for in-flight runs. The web button polls inside the mutation and also shows "Analyzing…" for runs started elsewhere (upload, another tab). Also fixed: `GET /analysis/runs` leaked the IDs of `awaiting_coach` proposals to the athlete.
+  - Production: root `Dockerfile` (one image; API `node dist/server.js`, worker `node dist/worker.js`, seed `node dist/scripts/seed.js --reset`), `.dockerignore`, API applies migrations on start, graceful SIGTERM. Verified locally: fresh DB → migrations → `/health` ok → seed → worker up.
+  - `DEMO_DAILY_RESEED=true` (worker): 04:00 UTC reseed as of that day, then post-activity checks for every athlete, so the seed story never goes stale and proposals are waiting each morning.
+  - E2E: the API under Playwright now runs `test/e2e/serve-e2e.ts` (production app + scripted model), which adds an e2e test for the Run analysis button (202 + polling + cited summary). With `E2E_BASE_URL`, the happy path runs the analysis itself if no proposal is waiting and relaxes fixture-specific assertions. 141 API tests, 3 e2e tests.
+  - Docs: `README.md`, `docs/deploy.md` (runbook), `docs/loom-script.md`; `docs/ai.md` gained the async-run section.

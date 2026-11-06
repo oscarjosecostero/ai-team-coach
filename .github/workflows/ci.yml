@@ -31,3 +31,11 @@ jobs:
       - if: failure()
         uses: actions/upload-artifact@v4
         with: { name: playwright-traces, path: web/test-results, retention-days: 7 }
+
+  # The API/worker image Railway deploys: catch Dockerfile breakage before it reaches a deploy.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t coach-api:ci .
+      - run: docker run --rm coach-api:ci node -e "import('@coach/contracts').then(() => console.log('contracts ok'))"

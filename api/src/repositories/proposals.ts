@@ -57,6 +57,11 @@ export const proposalsRepo = {
     return db.select().from(proposals).where(eq(proposals.agentRunId, agentRunId)).orderBy(proposals.createdAt);
   },
 
+  async listByRuns(db: Db, agentRunIds: string[]): Promise<ProposalRow[]> {
+    if (agentRunIds.length === 0) return [];
+    return db.select().from(proposals).where(inArray(proposals.agentRunId, agentRunIds)).orderBy(proposals.createdAt);
+  },
+
   /** Used by the agent proposal service and by tests. */
   async insert(db: Db, values: typeof proposals.$inferInsert): Promise<ProposalRow> {
     const [row] = await db.insert(proposals).values(values).returning();

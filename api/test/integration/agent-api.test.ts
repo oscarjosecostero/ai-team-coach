@@ -52,6 +52,19 @@ afterAll(async () => {
 const post = (url: string, cookie: string, payload?: unknown) => app.inject({ method: 'POST', url, headers: { cookie }, payload: payload as object | undefined });
 const get = (url: string, cookie: string) => app.inject({ method: 'GET', url, headers: { cookie } });
 
+/** POST /analysis/run answers 202 at once; poll the run like the web client does. */
+async function analyze(cookie: string, payload: object = {}) {
+  const res = await post('/analysis/run', cookie, payload);
+  expect(res.statusCode).toBe(202);
+  const id: string = res.json().run.id;
+  for (let i = 0; i < 200; i++) {
+    const run = (await get(`/analysis/runs/${id}`, cookie)).json().run;
+    if (run.status !== 'running') return run;
+    await new Promise((r) => setTimeout(r, 10));
+  }
+  throw new Error(`run ${id} did not finish`);
+}
+
 const reduceThursday = (req: LlmRequest) =>
   toolCalls({
     name: 'create_proposal',
@@ -110,11 +123,12 @@ describe('POST /chat', () => {
 describe('POST /analysis/run', () => {
   it('runs the weekly review for the athlete and returns summary and proposals', async () => {
     llm.script = new ScriptedLlm([() => toolCalls({ name: 'get_week_summary', input: {} }, { name: 'get_calendar', input: {} }), reduceThursday, reply('Easier Thursday proposed.')]);
-    const res = await post('/analysis/run', carlosCookie, {});
-    expect(res.statusCode).toBe(200);
-    const { analysis } = res.json();
+    const analysis = await analyze(carlosCookie);
     expect(analysis).toMatchObject({ kind: 'weekly', model: 'claude-sonnet-5-5', status: 'succeeded', summary: 'Easier Thursday proposed.' });
     expect(analysis.proposals).toHaveLength(1);
+    expect(analysis.proposals[0]).toMatchObject({ athleteName: 'Carlos Ruiz', workout: { date: '2026-11-12' } });
+    expect(analysis.proposalIds).toEqual([analysis.proposals[0].id]);
+    expect(analysis).not.toHaveProperty('toolTrace');
 
     const runs = await get('/analysis/runs', carlosCookie);
     expect(runs.json().runs[0]).toMatchObject({ kind: 'weekly', status: 'succeeded', summary: 'Easier Thursday proposed.' });
@@ -124,9 +138,25 @@ describe('POST /analysis/run', () => {
   it('applies the RBAC rules: a coach may run it for a teammate, an athlete only for themselves', async () => {
     expect((await post('/analysis/run', carlosCookie, { athleteId: marcos.id })).statusCode).toBe(403);
     llm.script = new ScriptedLlm([reply('Marcos looks fine.')]);
-    const res = await post('/analysis/run', coachCookie, { athleteId: marcos.id, kind: 'post_activity' });
-    expect(res.statusCode).toBe(200);
-    expect(res.json().analysis.model).toBe('claude-haiku-5-5');
+    const run = await analyze(coachCookie, { athleteId: marcos.id, kind: 'post_activity' });
+    expect(run.model).toBe('claude-haiku-5-5');
+    // Another athlete cannot read the run, and gets the same 404 as for an unknown ID.
+    expect((await get(`/analysis/runs/${run.id}`, carlosCookie)).statusCode).toBe(404);
+    expect((await get('/analysis/runs/00000000-0000-4000-8000-000000000000', carlosCookie)).statusCode).toBe(404);
+  });
+
+  it('does not start a second run while one is in progress for the same athlete and kind', async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const script = new ScriptedLlm([reply('Done.')]);
+    llm.script = { create: async (req: LlmRequest) => (await gate, script.create(req)) } as unknown as ScriptedLlm;
+    const first = (await post('/analysis/run', carlosCookie, {})).json().run;
+    expect(first.status).toBe('running');
+    const second = (await post('/analysis/run', carlosCookie, {})).json().run;
+    expect(second.id).toBe(first.id);
+    release();
+    await expect.poll(async () => (await get(`/analysis/runs/${first.id}`, carlosCookie)).json().run.status).toBe('succeeded');
+    expect(script.requests).toHaveLength(1);
   });
 
   it('hides awaiting_coach proposals from the athlete but shows them to the coach', async () => {
@@ -139,9 +169,12 @@ describe('POST /analysis/run', () => {
         return reply('Proposed.')(req);
       },
     ]);
-    const res = await post('/analysis/run', carlosCookie, {});
-    expect(res.json().analysis.proposals).toEqual([]);
+    const run = await analyze(carlosCookie);
+    expect(run.proposals).toEqual([]);
+    expect(run.proposalIds).toEqual([]);
+    expect((await get('/analysis/runs', carlosCookie)).json().runs[0].proposalIds).toEqual([]);
     expect((await db.select().from(proposals))[0]!.status).toBe('awaiting_coach');
+    expect((await get(`/analysis/runs/${run.id}`, coachCookie)).json().run.proposals).toHaveLength(1);
     const coachView = await get('/proposals?status=awaiting_coach', coachCookie);
     expect(coachView.json().proposals).toHaveLength(1);
   });
@@ -258,7 +291,7 @@ describe('analysis jobs', () => {
 describe('UI-facing enrichments', () => {
   it('returns proposals with the target workout and athlete name, calendar weeks and run citations', async () => {
     llm.script = new ScriptedLlm([() => toolCalls({ name: 'get_week_summary', input: {} }, { name: 'get_calendar', input: {} }), reduceThursday, reply('Shorter Thursday [[wk:2026-11-02:max_consecutive_hard_days]].')]);
-    await post('/analysis/run', carlosCookie, {});
+    await analyze(carlosCookie);
 
     const { proposals: list } = (await get('/proposals?status=pending', carlosCookie)).json();
     expect(list[0]).toMatchObject({ athleteName: 'Carlos Ruiz', workout: { date: '2026-11-12', workoutType: 'intervals', durationMin: 60, plannedLoad: 240, version: 1 } });

@@ -11,8 +11,9 @@ const nextConfig: NextConfig = {
   partialPrefetching: true,
   transpilePackages: ["@coach/contracts"],
   experimental: {
-    // A synchronous weekly analysis (Sonnet, several tool turns) can exceed the 30 s default.
-    proxyTimeout: 180_000,
+    // Self-hosted / `next dev` proxy only: a chat turn (Sonnet, a few tool calls) can exceed the 30 s
+    // default. On Vercel, external rewrites wait up to 120 s; analysis is async (202 + polling) anyway.
+    proxyTimeout: 120_000,
   },
   async rewrites() {
     return [{ source: "/api/:path*", destination: `${API_URL}/:path*` }];

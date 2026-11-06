@@ -14,7 +14,11 @@ boss.on('error', (err) => console.error('[pg-boss]', err));
 await boss.start();
 const { llm, embeddings } = createAiAdapters(env);
 if (!llm) console.warn('ANTHROPIC_API_KEY not set: analysis jobs will be skipped.');
-await startWorkers(boss, { db, llm, embeddings, publisher: new PgBossPublisher(boss), log: (m) => console.warn(m) });
+await startWorkers(
+  boss,
+  { db, llm, embeddings, publisher: new PgBossPublisher(boss), log: (m) => console.warn(m) },
+  { demoReseed: env.DEMO_DAILY_RESEED ? { password: env.SEED_PASSWORD } : undefined },
+);
 console.log('Worker started');
 
 const shutdown = async () => {

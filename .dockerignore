@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+**/.next
+web
+_context
+docs
+.git
+.github
+.env
+.env.*
+!.env.example
+**/test-results
+**/playwright-report
+**/coverage

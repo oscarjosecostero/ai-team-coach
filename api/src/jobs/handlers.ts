@@ -5,6 +5,7 @@ import type { EmbeddingProvider } from '../integrations/embeddings/embedding-pro
 import { agentRunsRepo } from '../repositories/agent-runs.js';
 import { athletesRepo } from '../repositories/athletes.js';
 import { runAnalysis, type AnalysisResult } from '../services/analysis.js';
+import { resetDemoData } from '../services/demo-reset.js';
 import { recomputeWeeklyMetrics } from '../services/metrics.js';
 import { analyzePostActivityPayload, recomputeMetricsPayload } from './definitions.js';
 import type { JobPublisher } from './publisher.js';
@@ -71,4 +72,19 @@ export async function handleWeeklyReviewAll(deps: JobDeps): Promise<{ succeeded:
     }
   }
   return { succeeded, failed };
+}
+
+/**
+ * Daily demo reset (only scheduled when DEMO_DAILY_RESEED=true). With an API key it then queues the
+ * post-activity check (Haiku) for every athlete, so visitors find the agent's proposals waiting.
+ */
+export async function handleDemoReseed(deps: JobDeps, password: string): Promise<{ athletes: number; embedded: number; analysesQueued: number }> {
+  const r = await resetDemoData({ db: deps.db, embeddings: deps.embeddings ?? null, log: deps.log }, { today: today(deps), password });
+  let analysesQueued = 0;
+  if (deps.llm && deps.publisher) {
+    for (const a of r.athletes) await deps.publisher.enqueuePostActivityAnalysis(a.id);
+    analysesQueued = r.athletes.length;
+  }
+  deps.log?.(`demo data reseeded as of ${today(deps)} (${r.athletes.length} athletes, ${r.embedded} notes embedded, ${analysesQueued} analyses queued)`);
+  return { athletes: r.athletes.length, embedded: r.embedded, analysesQueued };
 }

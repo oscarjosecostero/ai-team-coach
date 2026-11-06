@@ -8,7 +8,7 @@ This document describes `api/src/ai/` and the services around it.
 ```
 upload FIT/GPX ─► ingest (sync) ─► metrics.recompute job ─► analysis.post-activity job (Haiku)
 weekly cron (Sun 18:00 UTC) ─────────────────────────────► analysis.weekly-all job (Sonnet)
-POST /analysis/run (manual button) ──────────────────────► same analysis, synchronous
+POST /analysis/run (manual button) ──────────────────────► same analysis, in the background (202 + polling)
 POST /chat ──────────────────────────────────────────────► chat run (Sonnet)
 
 run = agent_runs row (running) ─► coach-agent loop ─► agent_runs row (succeeded|failed,
@@ -111,6 +111,16 @@ Terminal cases: `refusal` and `max_tokens` (a truncated tool input is never exec
 unknown tool names, invalid JSON/shape and guardrail violations become `is_error` tool results; `LlmError`
 fails the run with a `retryable` flag (the job retries rate limits/overload; billing/auth/400s don't
 retry); anything else is a bug and propagates.
+
+## Manual runs are asynchronous
+
+`POST /analysis/run` authorizes, creates the `agent_runs` row and answers `202 { run }` at once; the
+agent runs in the API process and the client polls `GET /analysis/runs/:id` (status, summary,
+citations, proposals). A weekly review can take longer than Vercel's 120 s limit for external
+rewrites, so a synchronous request would be cut off. A second click while a run of the same kind is
+in progress (started in the last 10 minutes) returns that run instead of paying for another one, and
+closing the server waits for in-flight runs (graceful redeploys). Chat stays synchronous: it runs on
+low effort with at most 6 turns.
 
 ## Notes search ("the brain")
 

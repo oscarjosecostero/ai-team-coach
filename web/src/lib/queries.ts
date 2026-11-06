@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs } from "./api";
-import type { AgentRun, AnalysisResult, ChatMessage, Dashboard, DemoAccount, PlannedWorkout, Proposal, ProposalStatus, RankingRow, SessionUser } from "./types";
+import type { AgentRun, AgentRunDetail, ChatMessage, Dashboard, DemoAccount, PlannedWorkout, Proposal, ProposalStatus, RankingRow, SessionUser } from "./types";
 
 export const keys = {
   me: ["me"] as const,
@@ -36,8 +36,17 @@ export const useProposals = (athleteId: string | undefined, statuses: ProposalSt
     queryFn: () => api.get<{ proposals: Proposal[] }>(`/proposals${qs({ athleteId, status: statuses.join(",") })}`).then((r) => r.proposals),
   });
 
+/** A run started less than ten minutes ago that is still running (older ones were interrupted). */
+export const isInProgress = (r: AgentRun) => r.status === "running" && Date.now() - new Date(r.startedAt).getTime() < 10 * 60_000;
+
 export const useRuns = (athleteId: string | undefined) =>
-  useQuery({ queryKey: keys.runs(athleteId ?? ""), queryFn: () => api.get<{ runs: AgentRun[] }>(`/analysis/runs${qs({ athleteId, limit: 5 })}`).then((r) => r.runs), enabled: Boolean(athleteId) });
+  useQuery({
+    queryKey: keys.runs(athleteId ?? ""),
+    queryFn: () => api.get<{ runs: AgentRun[] }>(`/analysis/runs${qs({ athleteId, limit: 5 })}`).then((r) => r.runs),
+    enabled: Boolean(athleteId),
+    // Keep the card fresh while an analysis (manual, or started by an upload) is still running.
+    refetchInterval: (q) => (q.state.data?.some(isInProgress) ? 3000 : false),
+  });
 
 export const useChat = (enabled = true) => useQuery({ queryKey: keys.chat, enabled, queryFn: () => api.get<{ messages: ChatMessage[] }>("/chat").then((r) => r.messages) });
 
@@ -72,10 +81,28 @@ export function useCoachReview() {
   });
 }
 
-export function useRunAnalysis() {
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Starts an analysis and waits for it. The API answers 202 with the run at once (a weekly review can
+ * outlast any proxy timeout), so the mutation polls `GET /analysis/runs/:id` until the run finishes.
+ * Callbacks live on the hook, not on `mutate()`, so they still fire if the user navigates away.
+ */
+export function useRunAnalysis(opts: { onDone?: (run: AgentRunDetail) => void; onError?: (err: unknown) => void } = {}) {
   const invalidate = useInvalidateAthleteData();
   return useMutation({
-    mutationFn: (v: { athleteId: string; kind: "weekly" | "post_activity" }) => api.post<{ analysis: AnalysisResult }>("/analysis/run", v).then((r) => r.analysis),
+    mutationFn: async (v: { athleteId: string; kind: "weekly" | "post_activity" }) => {
+      const { run } = await api.post<{ run: AgentRun }>("/analysis/run", v);
+      await invalidate(); // the runs list now shows it as running
+      for (let waited = 0; waited < 12 * 60_000; waited += 2000) {
+        await sleep(2000);
+        const { run: current } = await api.get<{ run: AgentRunDetail }>(`/analysis/runs/${run.id}`);
+        if (current.status !== "running") return current;
+      }
+      throw new Error("The analysis is taking longer than expected. Check back in a few minutes.");
+    },
+    onSuccess: opts.onDone,
+    onError: opts.onError,
     onSettled: invalidate,
   });
 }

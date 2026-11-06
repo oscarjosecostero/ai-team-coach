@@ -13,6 +13,10 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   /** One-click demo logins (no password). Turn off for anything but the public demo. */
   DEMO_LOGIN_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
+  /** Public demo: the worker replaces all data with a fresh seed every day at 04:00 UTC. */
+  DEMO_DAILY_RESEED: z.enum(['true', 'false']).default('false').transform((v) => v === 'true'),
+  /** Password shared by all seeded demo accounts. */
+  SEED_PASSWORD: z.string().min(8).default('demo-password'),
   /** Empty means "not configured": AI routes answer 503 and note search uses full-text only. */
   ANTHROPIC_API_KEY: optionalSecret,
   VOYAGE_API_KEY: optionalSecret,

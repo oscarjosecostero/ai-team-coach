@@ -23,4 +23,7 @@ export type AnalyzePostActivityPayload = z.infer<typeof analyzePostActivityPaylo
 /** Weekly Sonnet review for every athlete (cron). */
 export const WEEKLY_REVIEW_ALL = 'analysis.weekly-all';
 
-export const ALL_QUEUES = [RECOMPUTE_METRICS, RECOMPUTE_ALL_METRICS, ANALYZE_POST_ACTIVITY, WEEKLY_REVIEW_ALL] as const;
+/** Public demo only (DEMO_DAILY_RESEED=true): replace all data with a fresh seed as of today. */
+export const DEMO_RESEED = 'demo.reseed';
+
+export const ALL_QUEUES = [RECOMPUTE_METRICS, RECOMPUTE_ALL_METRICS, ANALYZE_POST_ACTIVITY, WEEKLY_REVIEW_ALL, DEMO_RESEED] as const;

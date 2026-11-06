@@ -3,6 +3,18 @@ import { migrate } from 'drizzle-orm/postgres-js/migrator';
 import postgres from 'postgres';
 import { fileURLToPath } from 'node:url';
 
+const MIGRATIONS_FOLDER = fileURLToPath(new URL('./migrations', import.meta.url));
+
+/** Applies pending migrations (idempotent). The API runs it on start, before listening. */
+export async function runMigrations(url: string): Promise<void> {
+  const sql = postgres(url, { max: 1, onnotice: () => {} });
+  try {
+    await migrate(drizzle(sql), { migrationsFolder: MIGRATIONS_FOLDER });
+  } finally {
+    await sql.end();
+  }
+}
+
 /** Creates `database` on the server of `baseUrl` if missing, then applies all migrations. */
 export async function ensureMigratedDatabase(baseUrl: string, database: string): Promise<string> {
   const admin = new URL(baseUrl);
@@ -17,11 +29,6 @@ export async function ensureMigratedDatabase(baseUrl: string, database: string):
   } finally {
     await a.end();
   }
-  const sql = postgres(target.toString(), { max: 1, onnotice: () => {} });
-  try {
-    await migrate(drizzle(sql), { migrationsFolder: fileURLToPath(new URL('./migrations', import.meta.url)) });
-  } finally {
-    await sql.end();
-  }
+  await runMigrations(target.toString());
   return target.toString();
 }

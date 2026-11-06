@@ -34,6 +34,17 @@ export const agentRunsRepo = {
     return db.select().from(agentRuns).where(eq(agentRuns.userId, userId)).orderBy(desc(agentRuns.startedAt)).limit(limit);
   },
 
+  /** A run still in progress for this athlete and kind (manual runs are not started twice). */
+  async findRunningSince(db: Db, userId: string, kind: AgentRunKind, since: Date): Promise<AgentRunRow | null> {
+    const [row] = await db
+      .select()
+      .from(agentRuns)
+      .where(and(eq(agentRuns.userId, userId), eq(agentRuns.kind, kind), eq(agentRuns.status, 'running'), gte(agentRuns.startedAt, since)))
+      .orderBy(desc(agentRuns.startedAt))
+      .limit(1);
+    return row ?? null;
+  },
+
   /** Used to debounce automatic post-activity analysis to one successful run per athlete per day. */
   async hasSucceededSince(db: Db, userId: string, kind: AgentRunKind, since: Date): Promise<boolean> {
     const [row] = await db
