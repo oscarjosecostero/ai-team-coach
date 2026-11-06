@@ -363,3 +363,22 @@ describe('agent: failure handling', () => {
     expect(llm.requests[0]!.messages[0]!.content).toMatch(/new run activity was just recorded \(2026-11-06\)/);
   });
 });
+
+describe('agent: citations inside the proposal reason', () => {
+  it('adds known inline citations to the evidence and drops unknown ones from the text', async () => {
+    const llm = new ScriptedLlm([
+      look,
+      proposeThursday('reduce', { durationMin: 45 }, ['wk:2026-11-02:max_consecutive_hard_days'], {
+        reason: 'Load ratio is [[wk:2026-11-02:acwr]] and VO2max is [[wk:2026-11-02:vo2max]], so Thursday should be shorter.',
+      }),
+      reply('Proposed.'),
+    ]);
+    const { result } = await run(llm);
+    expect(result.status).toBe('succeeded');
+    const [p] = await db.select().from(proposals);
+    expect(p!.reason).toBe('Load ratio is [[wk:2026-11-02:acwr]] and VO2max is, so Thursday should be shorter.');
+    const ids = (p!.evidence as { id: string }[]).map((f) => f.id);
+    expect(ids).toEqual(expect.arrayContaining(['wk:2026-11-02:max_consecutive_hard_days', 'wk:2026-11-02:acwr']));
+    expect(ids).not.toContain('wk:2026-11-02:vo2max');
+  });
+});

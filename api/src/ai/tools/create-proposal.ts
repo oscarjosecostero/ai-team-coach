@@ -1,4 +1,5 @@
 import { validateChangeShape } from '../../domain/proposal-change.js';
+import { resolveCitations } from '../facts.js';
 import { createProposalInput } from '../schemas/tool-inputs.js';
 import { defineTool, ToolInputError } from './types.js';
 
@@ -30,14 +31,19 @@ export const createProposal = defineTool({
       throw new ToolInputError('Unknown fact IDs. Cite only IDs that appear in tool results of this conversation.', { unknownFactIds: unknown });
     }
 
+    // Some models also cite inline in the reason ("ACWR [[wk:…:acwr]]"). Known IDs join the evidence,
+    // so the UI can render them with backend values; unknown ones are dropped from the text.
+    const inline = resolveCitations(input.reason, ctx.ledger);
+    const citedFacts = [...found, ...inline.citations.filter((f) => !found.some((e) => e.id === f.id))];
+
     const result = await ctx.data.createProposal({
       athleteId: ctx.athleteId,
       agentRunId: ctx.runId,
       workoutId: input.workoutId,
       changeType: input.changeType,
       change: input.change,
-      reason: input.reason,
-      citedFacts: found,
+      reason: inline.text,
+      citedFacts,
       confidence: input.confidence,
       modelInjuryConcern: input.injuryConcern,
     });

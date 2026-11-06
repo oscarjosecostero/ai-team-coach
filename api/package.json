@@ -14,6 +14,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=../.env src/scripts/seed.ts",
     "agent:smoke": "tsx --env-file=../.env src/scripts/agent-smoke.ts",
+    "gemini:models": "tsx --env-file=../.env src/scripts/gemini-models.ts",
     "e2e:fixture": "tsx test/e2e/seed-e2e.ts",
     "e2e:serve": "npm run e2e:fixture && tsx test/e2e/serve-e2e.ts",
     "worker": "tsx watch --env-file=../.env src/worker.ts",

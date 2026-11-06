@@ -90,8 +90,9 @@ the loop speaks to Gemini function calling:
 - `tool_use` ↔ `functionCall`, `tool_result` ↔ `functionResponse` (matched by name, and by id when
   Gemini issues one). Gemini's `thoughtSignature` rides on the converted block and is sent back on the
   next turn, the equivalent of passing Claude's thinking blocks back unchanged.
-- `tier` on each profile picks the model: `fast` → `GEMINI_MODEL_FAST` (default `gemini-2.5-flash-lite`),
-  `smart` → `GEMINI_MODEL_SMART` (default `gemini-2.5-flash`). Effort maps to a thinking budget on 2.x
+- `tier` on each profile picks the model: `fast` → `GEMINI_MODEL_FAST` (default `gemini-3.1-flash-lite`),
+  `smart` → `GEMINI_MODEL_SMART` (default `gemini-3.5-flash`); `npm run gemini:models` lists what a key
+  can call (Gemini 2.5 is closed to new users). Effort maps to a thinking budget on 2.x
   models and to a thinking level on Gemini 3.
 - Finish reasons map to the stop reasons the loop already handles (`MAX_TOKENS` → `max_tokens`, safety
   blocks → `refusal`), and usage keeps Claude's meaning (input excludes cache reads). `agent_runs.model`

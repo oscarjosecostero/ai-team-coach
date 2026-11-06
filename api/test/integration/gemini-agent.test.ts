@@ -65,7 +65,7 @@ describe('agent loop on the Gemini adapter', () => {
     expect(result.status).toBe('succeeded');
     expect(result.citations).toMatchObject([{ id: 'wk:2026-11-02:max_consecutive_hard_days', value: 3 }]);
     const [stored] = await db.select().from(agentRuns).where(eq(agentRuns.id, run.id));
-    expect(stored).toMatchObject({ model: 'gemini-2.5-flash', status: 'succeeded', inputTokens: 3000, cacheReadTokens: 6000 });
+    expect(stored).toMatchObject({ model: 'gemini-3.5-flash', status: 'succeeded', inputTokens: 3000, cacheReadTokens: 6000 });
     const [p] = await db.select().from(proposals).where(eq(proposals.agentRunId, run.id));
     expect(p).toMatchObject({ status: 'pending', changeType: 'reduce' });
     expect((p!.evidence as { source?: string }[]).some((f) => f.source === 'computed')).toBe(true);

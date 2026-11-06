@@ -19,6 +19,7 @@ function client(responses: GenerateContentResponse[] | (() => Promise<GenerateCo
       if (!next) throw new Error('no scripted response');
       return next;
     },
+    backoffMs: [], // no retries unless a test asks for them
   });
   return { llm, calls };
 }
@@ -39,27 +40,27 @@ describe('GeminiLlmClient: request translation', () => {
     const { llm, calls } = client([textResponse('ok')]);
     await llm.create(request());
     const p = calls[0]!;
-    expect(p.model).toBe('gemini-2.5-flash'); // weekly = smart tier
+    expect(p.model).toBe('gemini-3.5-flash'); // weekly = smart tier
     expect(p.config?.systemInstruction).toBe('RULES\n\nATHLETE CONTEXT');
     expect(p.config?.tools).toEqual([
       { functionDeclarations: [{ name: 'get_week_summary', description: 'Week summary', parametersJsonSchema: { type: 'object', properties: { weekStart: { type: 'string' } }, additionalProperties: false } }] },
     ]);
-    expect(p.config?.thinkingConfig).toEqual({ thinkingBudget: 4096 }); // effort medium on a 2.x model
+    expect(p.config?.thinkingConfig).toEqual({ thinkingLevel: 'MEDIUM' }); // effort medium on Gemini 3
     expect(p.config?.automaticFunctionCalling).toEqual({ disable: true });
     expect(p.contents).toEqual([{ role: 'user', parts: [{ text: 'Review the week.' }] }]);
 
     const fast = client([textResponse('ok')]);
     await fast.llm.create(request({ profile: AGENT_PROFILES.post_activity }));
-    expect(fast.calls[0]!.model).toBe('gemini-2.5-flash-lite');
+    expect(fast.calls[0]!.model).toBe('gemini-3.1-flash-lite');
   });
 
-  it('uses thinking levels on Gemini 3 models and honours model overrides', async () => {
+  it('uses thinking budgets on 2.x models and honours model overrides', async () => {
     const calls: GenerateContentParameters[] = [];
-    const llm = new GeminiLlmClient({ generate: async (p) => (calls.push(p), textResponse('ok')), models: { smart: 'gemini-3-flash' } });
+    const llm = new GeminiLlmClient({ generate: async (p) => (calls.push(p), textResponse('ok')), models: { smart: 'gemini-2.5-pro' } });
     await llm.create(request({ profile: AGENT_PROFILES.chat }));
-    expect(calls[0]!.model).toBe('gemini-3-flash');
-    expect(calls[0]!.config?.thinkingConfig).toEqual({ thinkingLevel: 'LOW' });
-    expect(llm.modelFor(AGENT_PROFILES.chat)).toBe('gemini-3-flash');
+    expect(calls[0]!.model).toBe('gemini-2.5-pro');
+    expect(calls[0]!.config?.thinkingConfig).toEqual({ thinkingBudget: 1024 });
+    expect(llm.modelFor(AGENT_PROFILES.chat)).toBe('gemini-2.5-pro');
   });
 });
 
@@ -151,6 +152,31 @@ describe('GeminiLlmClient: response translation', () => {
     await expect(fail(new ApiError({ message: 'busy', status: 503 }))).rejects.toMatchObject({ kind: 'overloaded', retryable: true });
     await expect(fail(new TypeError('fetch failed'))).rejects.toBeInstanceOf(LlmError);
     await expect(fail(new TypeError('fetch failed'))).rejects.toMatchObject({ kind: 'connection', retryable: true });
+  });
+
+  it('retries transient errors (incl. the free tier intermittent 403) and gives up after the backoff schedule', async () => {
+    let attempts = 0;
+    const flaky = new GeminiLlmClient({
+      generate: async () => {
+        attempts++;
+        if (attempts === 1) throw new ApiError({ message: 'denied', status: 403 });
+        if (attempts === 2) throw new ApiError({ message: 'busy', status: 503 });
+        return textResponse('ok');
+      },
+      backoffMs: [0, 0, 0],
+    });
+    expect((await flaky.create(request())).stop_reason).toBe('end_turn');
+    expect(attempts).toBe(3);
+
+    let tries = 0;
+    const down = new GeminiLlmClient({ generate: async () => (tries++, Promise.reject(new ApiError({ message: 'denied', status: 403 }))), backoffMs: [0, 0] });
+    await expect(down.create(request())).rejects.toMatchObject({ kind: 'auth' });
+    expect(tries).toBe(3);
+
+    let badTries = 0;
+    const bad = new GeminiLlmClient({ generate: async () => (badTries++, Promise.reject(new ApiError({ message: 'bad', status: 400 }))), backoffMs: [0, 0] });
+    await expect(bad.create(request())).rejects.toMatchObject({ kind: 'bad_request' });
+    expect(badTries).toBe(1); // not transient: no retry
   });
 });
 

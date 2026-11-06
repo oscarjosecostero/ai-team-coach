@@ -15,8 +15,11 @@ import { LlmError, type LlmClient, type LlmMessage, type LlmMessageParam, type L
 
 export type GeminiModels = { fast: string; smart: string };
 
-/** Defaults for the Gemini API free tier; override with GEMINI_MODEL_FAST / GEMINI_MODEL_SMART. */
-export const DEFAULT_GEMINI_MODELS: GeminiModels = { fast: 'gemini-2.5-flash-lite', smart: 'gemini-2.5-flash' };
+/**
+ * Defaults verified against the Gemini API in November 2026 (2.5 models are closed to new users);
+ * override with GEMINI_MODEL_FAST / GEMINI_MODEL_SMART. `npm run gemini:models` lists what a key can call.
+ */
+export const DEFAULT_GEMINI_MODELS: GeminiModels = { fast: 'gemini-3.1-flash-lite', smart: 'gemini-3.5-flash' };
 
 type GenerateFn = (params: GenerateContentParameters) => Promise<GenerateContentResponse>;
 
@@ -26,15 +29,26 @@ type GeminiExtras = { gemini_signature?: string };
 const CALL_ID_PREFIX = 'gemini_call_';
 const REFUSAL_REASONS = new Set<string>([FinishReason.SAFETY, FinishReason.PROHIBITED_CONTENT, FinishReason.BLOCKLIST, FinishReason.SPII, FinishReason.RECITATION, FinishReason.IMAGE_SAFETY]);
 
+/**
+ * Transient statuses worth retrying with backoff (the Anthropic SDK does this on its own). The
+ * Gemini API free tier also answers 403 PERMISSION_DENIED intermittently for a valid key (observed
+ * November 2026: the same request succeeds on the next attempt), so 403 is retried too; if it
+ * persists it is reported as an auth error.
+ */
+const TRANSIENT_STATUS = new Set([403, 429, 500, 502, 503, 504]);
+const DEFAULT_BACKOFF_MS = [1_000, 3_000, 8_000];
+
 export class GeminiLlmClient implements LlmClient {
   private readonly generate: GenerateFn;
+  private readonly backoffMs: number[];
   private seq = 0;
 
   /** `generate` is injectable so tests can check the translation without the network. */
   constructor(
-    opts: { apiKey: string; models?: Partial<GeminiModels>; timeoutMs?: number } | { generate: GenerateFn; models?: Partial<GeminiModels> },
+    opts: ({ apiKey: string; timeoutMs?: number } | { generate: GenerateFn }) & { models?: Partial<GeminiModels>; backoffMs?: number[] },
   ) {
     this.models = { ...DEFAULT_GEMINI_MODELS, ...opts.models };
+    this.backoffMs = opts.backoffMs ?? DEFAULT_BACKOFF_MS;
     if ('generate' in opts) {
       this.generate = opts.generate;
     } else {
@@ -63,13 +77,20 @@ export class GeminiLlmClient implements LlmClient {
         automaticFunctionCalling: { disable: true },
       },
     };
-    let res: GenerateContentResponse;
-    try {
-      res = await this.generate(params);
-    } catch (err) {
-      throw toLlmError(err);
+    return this.toMessage(await this.generateWithRetry(params), model);
+  }
+
+  private async generateWithRetry(params: GenerateContentParameters): Promise<GenerateContentResponse> {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await this.generate(params);
+      } catch (err) {
+        const transient = err instanceof ApiError ? TRANSIENT_STATUS.has(err.status) : toLlmError(err).kind === 'connection';
+        const wait = this.backoffMs[attempt];
+        if (!transient || wait === undefined) throw toLlmError(err);
+        await new Promise((r) => setTimeout(r, wait * (0.75 + Math.random() * 0.5)));
+      }
     }
-    return this.toMessage(res, model);
   }
 
   private toMessage(res: GenerateContentResponse, model: string): LlmMessage {
@@ -177,4 +198,14 @@ function toLlmError(err: unknown): LlmError {
   // fetch failures and timeouts surface as plain errors from the SDK.
   if (/fetch failed|ECONN|ETIMEDOUT|timeout|aborted/i.test(msg)) return new LlmError(msg, 'connection', true);
   return new LlmError(msg, 'unknown', false);
+}
+
+/** Models this key can call with generateContent (used by `npm run gemini:models` to pick the tiers). */
+export async function listGeminiModels(apiKey: string): Promise<string[]> {
+  const ai = new GoogleGenAI({ apiKey });
+  const names: string[] = [];
+  for await (const m of await ai.models.list()) {
+    if (m.supportedActions?.includes('generateContent') && m.name?.includes('gemini')) names.push(m.name.replace(/^models\//, ''));
+  }
+  return names.sort();
 }

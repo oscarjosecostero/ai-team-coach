@@ -2,6 +2,7 @@
 
 import { ArrowRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { CitedText } from "@/components/cited-text";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -73,7 +74,7 @@ export function ProposalCard({ p, actions, showAthlete }: { p: Proposal; actions
             </div>
           </div>
         )}
-        <p className="text-sm leading-relaxed">{p.reason}</p>
+        <CitedText text={p.reason} citations={p.evidence} className="text-sm leading-relaxed" />
         {p.coachNote && <p className="rounded-lg bg-muted px-3 py-2 text-sm"><span className="font-medium">Coach note:</span> {p.coachNote}</p>}
         <EvidenceList evidence={p.evidence} />
         {actions && !decided && (

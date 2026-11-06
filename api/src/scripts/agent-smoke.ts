@@ -137,7 +137,7 @@ async function main() {
       if (r.label.startsWith('Chat')) check('Chat answer cites at least one fact', out.citations.length > 0);
       // Billing, auth or request-shape errors will not fix themselves on the next run: stop spending calls.
       if (row.error?.startsWith('llm_error')) {
-        console.error(`Aborting: the Claude API call failed (${row.error.slice(0, 200)}).\n`);
+        console.error(`Aborting: the LLM API call failed (${row.error.slice(0, 200)}).\n`);
         break;
       }
     }
