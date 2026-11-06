@@ -1,4 +1,4 @@
-import { asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { wellnessCheckins } from '../db/schema.js';
 
@@ -27,5 +27,13 @@ export const checkinsRepo = {
 
   async list(db: Db, userId: string): Promise<CheckinRow[]> {
     return db.select().from(wellnessCheckins).where(eq(wellnessCheckins.userId, userId)).orderBy(asc(wellnessCheckins.date));
+  },
+
+  async listRange(db: Db, userId: string, from: string, to: string): Promise<CheckinRow[]> {
+    return db
+      .select()
+      .from(wellnessCheckins)
+      .where(and(eq(wellnessCheckins.userId, userId), gte(wellnessCheckins.date, from), lte(wellnessCheckins.date, to)))
+      .orderBy(asc(wellnessCheckins.date));
   },
 };

@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { PgBoss } from 'pg-boss';
 import { buildApp } from './app.js';
+import { createAiAdapters } from './config/ai.js';
 import { loadEnv } from './config/env.js';
 import { createDb } from './db/client.js';
 import { PgBossPublisher } from './jobs/publisher.js';
@@ -21,6 +22,7 @@ const app = buildApp({
   jwtSecret: env.JWT_SECRET,
   demoLoginEnabled: env.DEMO_LOGIN_ENABLED,
   secureCookies: env.NODE_ENV === 'production',
+  ...createAiAdapters(env),
 });
 
 await app.listen({ port: env.PORT, host: '0.0.0.0' });

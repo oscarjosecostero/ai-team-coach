@@ -13,10 +13,14 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "tsx --env-file=../.env src/scripts/seed.ts",
+    "agent:smoke": "tsx --env-file=../.env src/scripts/agent-smoke.ts",
+    "e2e:fixture": "tsx test/e2e/seed-e2e.ts",
+    "e2e:serve": "npm run e2e:fixture && tsx src/server.ts",
     "worker": "tsx watch --env-file=../.env src/worker.ts",
     "start:worker": "node dist/worker.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^1.6.0",
     "@coach/contracts": "^0.1.0",
     "@fastify/cookie": "^11.1.5",
     "@fastify/jwt": "^10.2.7",

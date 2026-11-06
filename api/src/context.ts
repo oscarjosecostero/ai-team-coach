@@ -1,4 +1,6 @@
+import type { LlmClient } from './ai/llm-client.js';
 import type { Db } from './db/client.js';
+import type { EmbeddingProvider } from './integrations/embeddings/embedding-provider.js';
 import type { JobPublisher } from './jobs/publisher.js';
 import type { Clock } from './lib/actor.js';
 
@@ -10,4 +12,9 @@ export type AppContext = {
   jwtSecret: string;
   demoLoginEnabled: boolean;
   secureCookies: boolean;
+  /** null when ANTHROPIC_API_KEY is not set: AI routes answer 503, everything else works. */
+  llm: LlmClient | null;
+  /** null when VOYAGE_API_KEY is not set: note search falls back to full-text. */
+  embeddings: EmbeddingProvider | null;
+  log: (msg: string) => void;
 };

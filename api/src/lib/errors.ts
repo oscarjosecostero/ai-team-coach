@@ -14,3 +14,5 @@ export const forbidden = (msg = 'You do not have access to this resource') => ne
 export const notFound = (what = 'Resource') => new AppError(404, 'not_found', `${what} not found`);
 export const conflict = (code: string, msg: string, details?: unknown) => new AppError(409, code, msg, details);
 export const badRequest = (msg: string, details?: unknown) => new AppError(400, 'bad_request', msg, details);
+export const aiUnavailable = () => new AppError(503, 'ai_unavailable', 'The AI coach is not configured on this server (missing ANTHROPIC_API_KEY).');
+export const aiFailed = (msg: string, details?: unknown) => new AppError(502, 'ai_failed', msg, details);

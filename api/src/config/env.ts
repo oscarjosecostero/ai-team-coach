@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const optionalSecret = z
+  .string()
+  .optional()
+  .transform((v) => (v && v.trim() ? v.trim() : undefined));
+
 const envSchema = z.object({
   DATABASE_URL: z.string().url(),
   JWT_SECRET: z.string().min(16),
@@ -8,8 +13,9 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
   /** One-click demo logins (no password). Turn off for anything but the public demo. */
   DEMO_LOGIN_ENABLED: z.enum(['true', 'false']).default('true').transform((v) => v === 'true'),
-  ANTHROPIC_API_KEY: z.string().optional(),
-  VOYAGE_API_KEY: z.string().optional(),
+  /** Empty means "not configured": AI routes answer 503 and note search uses full-text only. */
+  ANTHROPIC_API_KEY: optionalSecret,
+  VOYAGE_API_KEY: optionalSecret,
 });
 
 export type Env = z.infer<typeof envSchema>;

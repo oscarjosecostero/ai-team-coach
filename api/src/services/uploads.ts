@@ -6,7 +6,7 @@ import type { Actor } from '../lib/actor.js';
 import { requireAthlete } from './access.js';
 import { ingestActivities } from './ingestion.js';
 
-/** Parse + store synchronously (so the user gets an answer), recompute metrics in the background. */
+/** Parse + store synchronously (so the user gets an answer); metrics and then the post-activity analysis run in the background. */
 export async function uploadActivityFile(
   deps: { db: Db; jobs: JobPublisher },
   actor: Actor,
@@ -15,7 +15,7 @@ export async function uploadActivityFile(
 ) {
   requireAthlete(actor);
   return ingestActivities(
-    { db: deps.db, afterIngest: (userId, fromWeek) => deps.jobs.enqueueMetricsRecompute(userId, fromWeek) },
+    { db: deps.db, afterIngest: (userId, fromWeek) => deps.jobs.enqueueMetricsRecompute(userId, fromWeek, { thenAnalyze: true }) },
     actor.id,
     new FileActivitySource(file, sport),
   );

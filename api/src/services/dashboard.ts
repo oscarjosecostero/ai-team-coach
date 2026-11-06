@@ -1,5 +1,6 @@
 import type { Db } from '../db/client.js';
-import { addDays, toIsoDate, weekStartOf } from '../domain/dates.js';
+import { addDays, daysBetween, toIsoDate, weekStartOf } from '../domain/dates.js';
+import { plannedLoadByWeek } from '../domain/plan-load.js';
 import type { Actor, Clock } from '../lib/actor.js';
 import { activitiesRepo } from '../repositories/activities.js';
 import { athletesRepo } from '../repositories/athletes.js';
@@ -29,6 +30,7 @@ export async function getDashboard(deps: { db: Db; now: Clock }, actor: Actor, a
     athlete: { id: athlete.id, name: athlete.name },
     profile,
     today,
+    daysToRace: profile?.raceDate ? daysBetween(today, profile.raceDate) : null,
     latestActivity: recent[0] ?? null,
     recentActivities: recent,
     currentWeek: metrics.find((m) => m.weekStart === thisWeek) ?? null,
@@ -43,6 +45,13 @@ export async function getDashboard(deps: { db: Db; now: Clock }, actor: Actor, a
 export async function getCalendar(deps: { db: Db }, actor: Actor, athleteId: string, from: string, to: string) {
   const athlete = await authorizeAthleteAccess(deps.db, actor, athleteId);
   return plannedWorkoutsRepo.listRange(deps.db, athlete.id, from, to);
+}
+
+/** Planned load per Monday week, over whole weeks so a range starting mid-week still totals correctly. */
+export async function getCalendarWeeks(deps: { db: Db }, actor: Actor, athleteId: string, from: string, to: string) {
+  const athlete = await authorizeAthleteAccess(deps.db, actor, athleteId);
+  const rows = await plannedWorkoutsRepo.listRange(deps.db, athlete.id, weekStartOf(from), addDays(weekStartOf(to), 6));
+  return [...plannedLoadByWeek(rows)].sort(([a], [b]) => a.localeCompare(b)).map(([weekStart, plannedLoad]) => ({ weekStart, plannedLoad }));
 }
 
 export async function listActivities(deps: { db: Db }, actor: Actor, athleteId: string, limit: number) {

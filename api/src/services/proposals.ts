@@ -8,6 +8,7 @@ import { auditRepo } from '../repositories/audit.js';
 import { plannedWorkoutsRepo, type PlannedWorkoutRow } from '../repositories/planned-workouts.js';
 import { proposalsRepo, type ProposalRow } from '../repositories/proposals.js';
 import { teamsRepo } from '../repositories/teams.js';
+import { usersRepo } from '../repositories/users.js';
 import { requireCoach } from './access.js';
 
 export type ProposalDeps = { db: Db; now: Clock; afterPlanChange?: (userId: string, weekStart: string) => Promise<void> };
@@ -42,19 +43,38 @@ async function assertCanSee(db: Db, actor: Actor, p: ProposalRow): Promise<void>
   throw notFound('Proposal'); // do not reveal that it exists
 }
 
+/** A proposal as the UI needs it: plus the target workout as it is now, and whose proposal it is. */
+export type ProposalView = ProposalRow & {
+  athleteName: string;
+  workout: (WorkoutFields & { id: string; plannedLoad: number; version: number }) | null;
+};
+
+async function toViews(db: Db, rows: ProposalRow[]): Promise<ProposalView[]> {
+  const workouts = new Map((await plannedWorkoutsRepo.getByIds(db, [...new Set(rows.map((r) => r.plannedWorkoutId))])).map((w) => [w.id, w]));
+  const names = new Map<string, string>();
+  for (const id of new Set(rows.map((r) => r.userId))) names.set(id, (await usersRepo.findById(db, id))?.name ?? 'Unknown');
+  return rows.map((p) => {
+    const w = workouts.get(p.plannedWorkoutId);
+    return { ...p, athleteName: names.get(p.userId)!, workout: w ? { id: w.id, ...snapshot(w) } : null };
+  });
+}
+
 export const proposalService = {
-  async list(deps: ProposalDeps, actor: Actor, opts: { status?: ProposalRow['status'][]; athleteId?: string }): Promise<ProposalRow[]> {
+  async list(deps: ProposalDeps, actor: Actor, opts: { status?: ProposalRow['status'][]; athleteId?: string }): Promise<ProposalView[]> {
     const { db } = deps;
     if (actor.role === 'coach') {
       const all = await proposalsRepo.listForTeam(db, actor.teamId, opts.status);
-      return opts.athleteId ? all.filter((p) => p.userId === opts.athleteId) : all;
+      return toViews(db, opts.athleteId ? all.filter((p) => p.userId === opts.athleteId) : all);
     }
     if (opts.athleteId && opts.athleteId !== actor.id) throw forbidden();
     const rows = await proposalsRepo.listForUser(db, actor.id, opts.status);
-    return rows.filter((p) => p.status !== 'awaiting_coach');
+    return toViews(db, rows.filter((p) => p.status !== 'awaiting_coach'));
   },
 
-  get: (deps: ProposalDeps, actor: Actor, id: string) => loadVisible(deps.db, actor, id),
+  async get(deps: ProposalDeps, actor: Actor, id: string): Promise<ProposalView> {
+    const [view] = await toViews(deps.db, [await loadVisible(deps.db, actor, id)]);
+    return view!;
+  },
 
   /** Athlete accepts: apply the change to the calendar, atomically, with an audit trail. */
   async accept(deps: ProposalDeps, actor: Actor, id: string, note?: string): Promise<ProposalRow> {

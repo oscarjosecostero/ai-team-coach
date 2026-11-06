@@ -3,7 +3,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../context.js';
 import { submitCheckin } from '../services/checkins.js';
-import { getCalendar, getDashboard, listActivities } from '../services/dashboard.js';
+import { getCalendar, getCalendarWeeks, getDashboard, listActivities } from '../services/dashboard.js';
 import { parse, requireActor } from './helpers.js';
 
 const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -28,7 +28,9 @@ export function registerAthleteDataRoutes(app: FastifyInstance, ctx: AppContext)
   app.get('/calendar', async (req) => {
     const actor = await requireActor(ctx, req);
     const q = parse(calendarQuery, req.query);
-    return { workouts: await getCalendar(ctx, actor, q.athleteId ?? actor.id, q.from, q.to) };
+    const athleteId = q.athleteId ?? actor.id;
+    const [workouts, weeks] = await Promise.all([getCalendar(ctx, actor, athleteId, q.from, q.to), getCalendarWeeks(ctx, actor, athleteId, q.from, q.to)]);
+    return { workouts, weeks };
   });
 
   app.post('/checkins', async (req, reply) => {

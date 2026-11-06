@@ -8,8 +8,10 @@ import type { AppContext } from './context.js';
 import type { Database } from './db/client.js';
 import { ActivityParseError } from './integrations/activity-source.js';
 import { AppError } from './lib/errors.js';
+import { registerAnalysisRoutes } from './routes/analysis.js';
 import { registerAthleteDataRoutes } from './routes/athlete-data.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerChatRoutes } from './routes/chat.js';
 import { registerProposalRoutes } from './routes/proposals.js';
 import { registerTeamRoutes } from './routes/team.js';
 import { registerUploadRoutes } from './routes/uploads.js';
@@ -21,6 +23,8 @@ export type AppDeps = {
   now?: AppContext['now'];
   demoLoginEnabled?: boolean;
   secureCookies?: boolean;
+  llm?: AppContext['llm'];
+  embeddings?: AppContext['embeddings'];
 };
 
 const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
@@ -34,6 +38,9 @@ export function buildApp(deps: AppDeps) {
     jwtSecret: deps.jwtSecret,
     demoLoginEnabled: deps.demoLoginEnabled ?? true,
     secureCookies: deps.secureCookies ?? false,
+    llm: deps.llm ?? null,
+    embeddings: deps.embeddings ?? null,
+    log: (msg) => app.log.warn(msg),
   };
 
   app.register(cookie);
@@ -66,6 +73,8 @@ export function buildApp(deps: AppDeps) {
   registerProposalRoutes(app, ctx);
   registerUploadRoutes(app, ctx);
   registerTeamRoutes(app, ctx);
+  registerAnalysisRoutes(app, ctx);
+  registerChatRoutes(app, ctx);
 
   return app;
 }

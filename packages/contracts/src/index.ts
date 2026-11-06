@@ -68,3 +68,34 @@ export const decisionRequestSchema = z.object({ note: z.string().max(1000).optio
 
 export const proposalStatusSchema = z.enum(['awaiting_coach', 'pending', 'accepted', 'rejected', 'expired']);
 export type ProposalStatus = z.infer<typeof proposalStatusSchema>;
+
+// ---------- Phase 3: agent, evidence, chat ----------
+
+/**
+ * A backend-computed value the agent can cite by ID. `source` is `cited` when the model cited it
+ * and `computed` when the backend added it to the evidence itself (e.g. the planned-load impact).
+ */
+export const factSchema = z.object({
+  id: z.string(),
+  label: z.string(),
+  value: z.union([z.number(), z.string(), z.null()]),
+  unit: z.string().optional(),
+  source: z.enum(['cited', 'computed']).optional(),
+});
+export type Fact = z.infer<typeof factSchema>;
+
+/** Stored in `proposals.evidence`. Every number shown next to a proposal comes from here. */
+export const proposalEvidenceSchema = z.array(factSchema);
+export type ProposalEvidence = z.infer<typeof proposalEvidenceSchema>;
+
+export const analysisKindSchema = z.enum(['post_activity', 'weekly']);
+export type AnalysisKind = z.infer<typeof analysisKindSchema>;
+
+export const analysisRunRequestSchema = z.object({
+  athleteId: z.string().uuid().optional(),
+  kind: analysisKindSchema.default('weekly'),
+});
+export type AnalysisRunRequest = z.infer<typeof analysisRunRequestSchema>;
+
+export const chatRequestSchema = z.object({ message: z.string().trim().min(1).max(2000) });
+export type ChatRequest = z.infer<typeof chatRequestSchema>;

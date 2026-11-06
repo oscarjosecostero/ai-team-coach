@@ -1,4 +1,4 @@
-import { and, asc, eq, gte, lte, sql } from 'drizzle-orm';
+import { and, asc, eq, gte, inArray, lte, sql } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { plannedWorkouts } from '../db/schema.js';
 
@@ -21,6 +21,11 @@ export const plannedWorkoutsRepo = {
   async getById(db: Db, id: string): Promise<PlannedWorkoutRow | null> {
     const [row] = await db.select().from(plannedWorkouts).where(eq(plannedWorkouts.id, id));
     return row ?? null;
+  },
+
+  async getByIds(db: Db, ids: string[]): Promise<PlannedWorkoutRow[]> {
+    if (ids.length === 0) return [];
+    return db.select().from(plannedWorkouts).where(inArray(plannedWorkouts.id, ids));
   },
 
   async getByIdForUpdate(db: Db, id: string): Promise<PlannedWorkoutRow | null> {
