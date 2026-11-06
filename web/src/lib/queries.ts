@@ -2,12 +2,13 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, qs } from "./api";
-import type { AgentRun, AgentRunDetail, ChatMessage, Dashboard, DemoAccount, PlannedWorkout, Proposal, ProposalStatus, RankingRow, SessionUser } from "./types";
+import type { Activity, AgentRun, AgentRunDetail, ChatMessage, Dashboard, DemoAccount, PlannedWorkout, Proposal, ProposalStatus, RankingRow, SessionUser } from "./types";
 
 export const keys = {
   me: ["me"] as const,
   dashboard: (athleteId: string) => ["dashboard", athleteId] as const,
   calendar: (athleteId: string, from: string, to: string) => ["calendar", athleteId, from, to] as const,
+  activities: (athleteId: string, range: string) => ["activities", athleteId, range] as const,
   proposals: (athleteId: string | undefined, status: string) => ["proposals", athleteId ?? "all", status] as const,
   runs: (athleteId: string) => ["runs", athleteId] as const,
   chat: ["chat"] as const,
@@ -27,6 +28,14 @@ export const useCalendar = (athleteId: string | undefined, from: string, to: str
     queryKey: keys.calendar(athleteId ?? "", from, to),
     queryFn: () => api.get<{ workouts: PlannedWorkout[]; weeks: { weekStart: string; plannedLoad: number }[] }>(`/calendar${qs({ athleteId, from, to })}`),
     enabled: Boolean(athleteId),
+  });
+
+/** Stored activities: the most recent `limit`, or those between `from` and `to` (UTC days, inclusive). */
+export const useActivities = (athleteId: string | undefined, q: { limit?: number; from?: string; to?: string }) =>
+  useQuery({
+    queryKey: keys.activities(athleteId ?? "", q.from && q.to ? `${q.from}..${q.to}` : `last:${q.limit ?? 20}`),
+    queryFn: () => api.get<{ activities: Activity[] }>(`/activities${qs({ athleteId, ...q })}`).then((r) => r.activities),
+    enabled: Boolean(athleteId) && (!q.from || Boolean(q.to)),
   });
 
 export const useProposals = (athleteId: string | undefined, statuses: ProposalStatus[], enabled = true) =>
@@ -56,7 +65,7 @@ export const useRanking = (enabled = true) => useQuery({ queryKey: keys.ranking,
 export function useInvalidateAthleteData() {
   const qc = useQueryClient();
   return () =>
-    Promise.all(["dashboard", "calendar", "proposals", "runs", "ranking"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
+    Promise.all(["dashboard", "calendar", "activities", "proposals", "runs", "ranking"].map((k) => qc.invalidateQueries({ queryKey: [k] })));
 }
 
 export function useDecideProposal() {

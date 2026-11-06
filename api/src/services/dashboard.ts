@@ -58,7 +58,9 @@ export async function getCalendarWeeks(deps: { db: Db }, actor: Actor, athleteId
   return [...plannedLoadByWeek(rows)].sort(([a], [b]) => a.localeCompare(b)).map(([weekStart, plannedLoad]) => ({ weekStart, plannedLoad }));
 }
 
-export async function listActivities(deps: { db: Db }, actor: Actor, athleteId: string, limit: number) {
+/** Most recent first; with `from`/`to` (UTC days, inclusive) the activities in that range, oldest first. */
+export async function listActivities(deps: { db: Db }, actor: Actor, athleteId: string, q: { limit: number; from?: string; to?: string }) {
   const athlete = await authorizeAthleteAccess(deps.db, actor, athleteId);
-  return activitiesRepo.listRecent(deps.db, athlete.id, limit);
+  if (q.from && q.to) return activitiesRepo.listBetween(deps.db, athlete.id, new Date(`${q.from}T00:00:00.000Z`), new Date(`${q.to}T23:59:59.999Z`));
+  return activitiesRepo.listRecent(deps.db, athlete.id, q.limit);
 }

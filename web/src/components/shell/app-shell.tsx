@@ -1,7 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { Activity, CalendarDays, Inbox, LogOut, MessageCircle, Users } from "lucide-react";
+import { Activity, CalendarDays, History, Inbox, LogOut, MessageCircle, Users } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
@@ -15,6 +15,7 @@ import { SessionProvider, useSession } from "./session";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", icon: Activity },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
+  { href: "/activities", label: "Activities", icon: History },
   { href: "/proposals", label: "Proposals", icon: Inbox },
   { href: "/chat", label: "Coach chat", icon: MessageCircle, athleteOnly: true },
   { href: "/team", label: "Team", icon: Users },

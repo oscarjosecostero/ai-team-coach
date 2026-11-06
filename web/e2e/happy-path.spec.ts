@@ -73,6 +73,25 @@ test("switching accounts: athlete -> coach -> athlete", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Hi Carlos" })).toBeVisible();
 });
 
+/** The inputs behind every metric are visible: the activity list, and done sessions on the calendar. */
+test("activities: the stored sessions are listed and shown on past calendar days", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByTestId("demo-login-carlos").click();
+  await expect(page.getByTestId("dashboard")).toBeVisible();
+
+  await page.getByRole("link", { name: "Activities" }).click();
+  await expect(page.getByTestId("activities")).toBeVisible();
+  const rows = page.getByTestId("activity-row");
+  await expect(rows.first()).toBeVisible();
+  await rows.first().getByRole("button").click();
+  await expect(rows.first()).toContainText("Training load");
+  await page.getByRole("group", { name: "Filter by discipline" }).getByRole("button", { name: "Swim" }).click();
+  await expect(rows.first()).toContainText("Swim");
+
+  await page.getByRole("link", { name: "Calendar" }).click();
+  await expect(page.locator('[data-testid^="activity-"]').first()).toContainText("Done");
+});
+
 /** The analysis runs in the background (202 + polling), so no proxy timeout sits in front of it. */
 test("run analysis: the button waits for the background run and shows the cited summary", async ({ page }) => {
   test.skip(live, "Covered by the happy path against the live site (it may trigger a real run).");

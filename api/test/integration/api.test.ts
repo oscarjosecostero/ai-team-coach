@@ -106,6 +106,11 @@ describe('data access', () => {
     expect(dash.json().upcomingWorkouts.length).toBeGreaterThan(0);
     expect((await get('/calendar?from=2026-11-01&to=2026-11-20', carlosCookie)).json().workouts.length).toBeGreaterThan(0);
     expect((await get('/activities?limit=3', carlosCookie)).json().activities).toHaveLength(3);
+    // A date range returns that range, oldest first (the calendar shows past days from it).
+    const ranged = (await get('/activities?from=2026-11-02&to=2026-11-06', carlosCookie)).json().activities as { startedAt: string }[];
+    expect(ranged.length).toBeGreaterThan(0);
+    expect(ranged.every((a) => a.startedAt >= '2026-11-02' && a.startedAt <= '2026-11-06T23:59:59.999Z')).toBe(true);
+    expect(ranged.map((a) => a.startedAt)).toEqual([...ranged.map((a) => a.startedAt)].sort());
   });
 
   it("an athlete cannot read another athlete's data", async () => {

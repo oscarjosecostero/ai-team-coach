@@ -33,6 +33,10 @@ export type Activity = {
   timeInZonesS: number[] | null;
   notes: string | null;
   source: "seed" | "file" | "strava";
+  maxHr?: number | null;
+  elevationGainM?: number | null;
+  avgPowerW?: number | null;
+  loadMethod?: "hr_trimp" | "duration_estimate" | null;
 };
 
 export type WeeklyMetrics = {

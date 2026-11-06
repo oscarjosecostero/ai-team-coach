@@ -24,7 +24,7 @@ for (const scheme of ["light", "dark"] as const) {
     await page.getByRole("tab", { name: "History" }).click();
     await page.getByTestId("proposal-card").first().waitFor();
     await page.screenshot({ path: `e2e/screenshots/${scheme}-proposal-history.png`, fullPage: true });
-    for (const route of ["calendar", "team", "chat"]) {
+    for (const route of ["calendar", "activities", "team", "chat"]) {
       await page.goto(`/${route}`);
       await page.waitForLoadState("networkidle");
       await page.waitForTimeout(300);
