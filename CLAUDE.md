@@ -34,4 +34,6 @@ schema and phase status live in `docs/PLAN.md` — read it before doing anything
 
 ## Commands
 - Start Docker: `colima start` · DB: `docker compose up -d`
+- Seed demo team: `npm run db:seed --workspace api -- --reset` (needs the DB up + migrated: `npm run db:migrate --workspace api`)
+- `npm run worker --workspace api` runs the pg-boss worker
 - `npm run dev` (api, :4000) · `npm run dev:web` · `npm run build` · `npm run typecheck` · `npm run lint` · `npm test`

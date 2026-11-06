@@ -9,8 +9,8 @@ Context PDFs live in `_context/` (git-ignored, never commit them).
 |---|---|---|
 | Plan & architecture review | ✅ Done | Approved by Oscar (Node/TypeScript stack). |
 | 0. Setup | ✅ Done | Gate green: typecheck, lint, test, /health vs Docker PG, CI green on GitHub. |
-| 1. Data + domain | ⏳ Next | Confirm open decisions below before starting. |
-| 2. API + auth + approval | ⬜ | |
+| 1. Data + domain | ✅ Done | Gate green: 56 tests (unit + integration on Docker PG), typecheck, lint, build. Seed → `weekly_metrics` verified. |
+| 2. API + auth + approval | ⏳ Next | |
 | 3. Agent | ⬜ | |
 | 4. Frontend | ⬜ | |
 | 5. Deploy + README | ⬜ | |
@@ -283,3 +283,7 @@ Strava adapter (personal use only), webhooks, MCP server reusing `ai/tools/regis
 - 2026-11-06 — Phase 0 done locally: npm workspaces (api, web, packages/contracts), Fastify `/health` with DB check, Drizzle client, Vitest (unit + integration on Docker PG), ESLint boundary rules, Next.js 16 + Tailwind + shadcn, docker-compose (pgvector pg17), CI workflow. Pending: create public repo, push, confirm CI green.
 - 2026-11-06 — Phase 1 started: pure `api/src/domain/` (zones, load, intensity, fitness, plan-guardrails) with 17 unit tests. Remaining: weekly-summary, Drizzle schema + migrations, seed scenario, FIT/GPX adapter, ingestion/metrics services, pg-boss jobs.
 - 2026-11-06 — Phase 0 gate complete: public repo created, pushed, CI green.
+- 2026-11-06 — Phase 1 gate complete. Drizzle schema (12 tables) + migration 0000 (`CREATE EXTENSION vector`, HNSW/GIN indexes, append-only `audit_log` trigger). Domain: dates, planned load, activity metrics, weekly summary. `ActivitySource` adapters: FIT, GPX (idempotent via content hash) and synthetic seed. Repositories, ingestion + metrics services, pg-boss jobs (`metrics.recompute`, daily `metrics.recompute-all`) and `worker.ts`. Seed: 1 coach + 5 athletes, 8 weeks of history, 2 weeks of plan, check-ins; Carlos has 3 consecutive hard days + resting HR +5 bpm, Marcos a load spike (ACWR ~1.9). Run it with `npm run db:seed --workspace api -- --reset`.
+  - Decisions made along the way: (a) integration tests use an isolated `coach_test` database created by vitest `globalSetup` (files run serially) so the dev seed is never wiped; (b) `max_consecutive_hard_days` is measured over the 7 days ending at the week end (or today for the current week) so a streak crossing Monday is not hidden; (c) for a partial current week, `load_change_pct` compares against the same number of days of the previous week; (d) team `coach_review_enabled` is `false` in the seed (toggle it to demo the coach queue); (e) all seed accounts share `SEED_PASSWORD` (default `demo-password`); (f) ingestion takes an `afterIngest` hook: the worker enqueues a job, tests/seed run metrics inline.
+  - Left for Phase 2: wire an upload route + `PgBossPublisher` into `app.ts`; uploads should ingest synchronously (parse + store) and enqueue the metrics recompute.
+
