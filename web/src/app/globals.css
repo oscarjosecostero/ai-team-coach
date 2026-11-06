@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
+  --font-sans: var(--font-geist-sans), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-heading: var(--font-sans);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -49,6 +49,23 @@
 }
 
 :root {
+  /* Data-viz roles (dataviz reference palette; validated light + dark, see docs). */
+  --viz-series-1: #2a78d6;
+  --viz-series-2: #eb6834;
+  --viz-grid: #e1e0d9;
+  --viz-axis: #c3c2b7;
+  --viz-muted: #898781;
+  --viz-track: #cde2fb;
+  --viz-seq-250: #86b6ef;
+  --viz-seq-350: #5598e7;
+  --viz-seq-450: #2a78d6;
+  --viz-seq-550: #1c5cab;
+  --viz-seq-650: #104281;
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-serious: #ec835a;
+  --status-critical: #d03b3b;
+  --delta-good: #006300;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -84,6 +101,18 @@
 }
 
 .dark {
+  --viz-series-1: #3987e5;
+  --viz-series-2: #d95926;
+  --viz-grid: #2c2c2a;
+  --viz-axis: #383835;
+  --viz-muted: #898781;
+  --viz-track: #184f95;
+  --viz-seq-250: #184f95;
+  --viz-seq-350: #1c5cab;
+  --viz-seq-450: #2a78d6;
+  --viz-seq-550: #5598e7;
+  --viz-seq-650: #86b6ef;
+  --delta-good: #0ca30c;
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);
   --card: oklch(0.205 0 0);
