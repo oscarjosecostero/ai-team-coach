@@ -38,6 +38,7 @@ httpOnly session cookie is first-party and no CORS is needed.
    | `NODE_ENV` | `production` (secure cookies) |
    | `ANTHROPIC_API_KEY` | Claude API key (without it, analysis and chat return 503) |
    | `VOYAGE_API_KEY` | optional; without it note search is full-text only |
+   | `GEMINI_API_KEY`, `LLM_PROVIDER` | optional second provider: `LLM_PROVIDER=gemini` uses Gemini even when `ANTHROPIC_API_KEY` is set (`auto` prefers Claude) |
    | `SEED_PASSWORD` | password of the demo accounts for the password form (demo buttons need none) |
    | `DEMO_LOGIN_ENABLED` | `true` for the public demo |
 

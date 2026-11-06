@@ -1,6 +1,6 @@
 import type { Fact } from '@coach/contracts';
 import type { TraceStep } from '../ai/coach-agent.js';
-import { createAiAdapters } from '../config/ai.js';
+import { createAiAdapters, selectLlmProvider } from '../config/ai.js';
 import { loadEnv } from '../config/env.js';
 import { createDb, type Db } from '../db/client.js';
 import { ensureMigratedDatabase } from '../db/migrate.js';
@@ -14,10 +14,11 @@ import { backfillEmbeddings } from '../services/notes-search.js';
 import { seedDemoTeam } from '../services/seed.js';
 
 /**
- * End-to-end check against the real Claude API on the seed scenario (Phase 3 gate):
- *   npm run agent:smoke            (from the repo root or api/)
+ * End-to-end check against the real LLM on the seed scenario (Phase 3 gate):
+ *   npm run agent:smoke                       (Claude, or Gemini when only GEMINI_API_KEY is set)
+ *   LLM_PROVIDER=gemini npm run agent:smoke   (force Gemini)
  * Uses its own database (`coach_smoke`), reseeded on every run, so the dev data is never touched.
- * Costs a few cents: one Haiku post-activity run, one Sonnet weekly review, one Sonnet chat turn.
+ * Costs a few cents: one fast-tier post-activity run, one smart-tier weekly review, one chat turn.
  */
 
 const SMOKE_DB = 'coach_smoke';
@@ -56,7 +57,8 @@ async function planFingerprint(db: Db, ids: string[]) {
 async function main() {
   const env = loadEnv();
   const { llm, embeddings } = createAiAdapters(env);
-  if (!llm) throw new Error('ANTHROPIC_API_KEY is not set (see .env.example).');
+  if (!llm) throw new Error('No LLM configured: set ANTHROPIC_API_KEY or GEMINI_API_KEY (see .env.example).');
+  console.log(`LLM provider: ${selectLlmProvider(env)}`);
 
   const today = toIsoDate(new Date());
   const url = await ensureMigratedDatabase(env.DATABASE_URL, SMOKE_DB);
@@ -78,7 +80,7 @@ async function main() {
 
     const runs: { label: string; athleteId: string; exec: () => Promise<{ runId: string; text: string; proposals: ProposalRow[]; citations: Fact[] }> }[] = [
       {
-        label: 'Post-activity check for Carlos (Haiku)',
+        label: 'Post-activity check for Carlos (fast tier)',
         athleteId: carlos.id,
         exec: async () => {
           const r = await runAnalysis(deps, { athleteId: carlos.id, kind: 'post_activity', trigger: 'smoke' });
@@ -86,7 +88,7 @@ async function main() {
         },
       },
       {
-        label: 'Weekly review for Marcos (Sonnet)',
+        label: 'Weekly review for Marcos (smart tier)',
         athleteId: marcos.id,
         exec: async () => {
           const r = await runAnalysis(deps, { athleteId: marcos.id, kind: 'weekly', trigger: 'smoke' });
@@ -94,7 +96,7 @@ async function main() {
         },
       },
       {
-        label: 'Chat with Carlos (Sonnet): "Am I ready for my triathlon in December?"',
+        label: 'Chat with Carlos (smart tier): "Am I ready for my triathlon in December?"',
         athleteId: carlos.id,
         exec: async () => {
           const { run, result } = await runAgentForAthlete(deps, { athleteId: carlos.id, kind: 'chat', trigger: 'smoke', userMessage: 'Am I ready for my triathlon in December?' });
@@ -113,7 +115,7 @@ async function main() {
       const cacheWrite = (stored?.trace ?? []).reduce((a, s) => a + (s.type === 'model' ? s.cacheWriteTokens : 0), 0);
       const usd = estimateUsd(row.model, { inputTokens: row.inputTokens ?? 0, outputTokens: row.outputTokens ?? 0, cacheReadTokens: row.cacheReadTokens ?? 0, cacheWriteTokens: cacheWrite });
       totalUsd += usd ?? 0;
-      console.log(`  status=${row.status} model=${row.model} turns=${stored?.turns ?? 0} time=${((Date.now() - started) / 1000).toFixed(1)}s tokens in=${row.inputTokens} out=${row.outputTokens} cache_read=${row.cacheReadTokens} cache_write=${cacheWrite} ≈ $${usd?.toFixed(4)}`);
+      console.log(`  status=${row.status} model=${row.model} turns=${stored?.turns ?? 0} time=${((Date.now() - started) / 1000).toFixed(1)}s tokens in=${row.inputTokens} out=${row.outputTokens} cache_read=${row.cacheReadTokens} cache_write=${cacheWrite} ≈ ${usd === null ? 'n/a (no list price in the script)' : `$${usd.toFixed(4)}`}`);
       if (row.error) console.log(`  error: ${row.error}`);
       console.log(`  reply: ${out.text}`);
       if (out.citations.length) console.log(`  citations: ${out.citations.map((c) => `${c.id}=${c.value}`).join(', ')}`);

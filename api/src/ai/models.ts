@@ -11,13 +11,14 @@ export type AgentProfile = ModelProfile & {
 
 /**
  * Two tiers (see docs/PLAN.md): Haiku for the frequent, cheap post-activity check; Sonnet for the
- * weekly review and chat. Effort follows Anthropic's starting points: `medium` for multi-step
- * tool use, `low` for chat. Sampling parameters (temperature) are not accepted by these models.
+ * weekly review and chat. Effort follows Anthropic's starting points: `medium` for multi-step tool
+ * use, `low` for chat. Sampling parameters (temperature) are not accepted by these models.
+ * `tier` lets other adapters (Gemini) pick their own fast/smart model for the same profile.
  */
 export const AGENT_PROFILES: Record<AgentKind, AgentProfile> = {
-  post_activity: { model: 'claude-haiku-5-5', effort: 'medium', maxTokens: 16_000, refusalFallback: false, maxTurns: 8, maxProposals: 1 },
-  weekly: { model: 'claude-sonnet-5-5', effort: 'medium', maxTokens: 16_000, refusalFallback: true, maxTurns: 10, maxProposals: 2 },
-  chat: { model: 'claude-sonnet-5-5', effort: 'low', maxTokens: 16_000, refusalFallback: true, maxTurns: 6, maxProposals: 1 },
+  post_activity: { model: 'claude-haiku-5-5', tier: 'fast', effort: 'medium', maxTokens: 16_000, refusalFallback: false, maxTurns: 8, maxProposals: 1 },
+  weekly: { model: 'claude-sonnet-5-5', tier: 'smart', effort: 'medium', maxTokens: 16_000, refusalFallback: true, maxTurns: 10, maxProposals: 2 },
+  chat: { model: 'claude-sonnet-5-5', tier: 'smart', effort: 'low', maxTokens: 16_000, refusalFallback: true, maxTurns: 6, maxProposals: 1 },
 };
 
 /** Stored in audit_log.actor_id for everything the agent does. */

@@ -20,6 +20,12 @@ const envSchema = z.object({
   /** Empty means "not configured": AI routes answer 503 and note search uses full-text only. */
   ANTHROPIC_API_KEY: optionalSecret,
   VOYAGE_API_KEY: optionalSecret,
+  /** Second LLM provider (Google Gemini API), used when Claude is not configured or LLM_PROVIDER=gemini. */
+  GEMINI_API_KEY: optionalSecret,
+  GEMINI_MODEL_FAST: optionalSecret,
+  GEMINI_MODEL_SMART: optionalSecret,
+  /** `auto` (default): Claude when ANTHROPIC_API_KEY is set, otherwise Gemini when GEMINI_API_KEY is set. */
+  LLM_PROVIDER: z.enum(['auto', 'anthropic', 'gemini']).default('auto'),
 });
 
 export type Env = z.infer<typeof envSchema>;

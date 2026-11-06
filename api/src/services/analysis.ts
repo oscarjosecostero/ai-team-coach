@@ -23,6 +23,9 @@ export type StoredTrace = Pick<AgentResult, 'trace' | 'text' | 'citations' | 'un
 
 export type AgentRunOutcome = { run: AgentRunRow; result: AgentResult };
 
+/** The model the configured provider will actually call (Claude ID, or e.g. a Gemini model). */
+const modelName = (llm: LlmClient, kind: AgentKind) => llm.modelFor?.(AGENT_PROFILES[kind]) ?? AGENT_PROFILES[kind].model;
+
 type AgentRunParams = { athleteId: string; kind: AgentKind; trigger: string; userMessage: string; history?: { role: 'user' | 'assistant'; content: string }[] };
 
 /**
@@ -31,7 +34,7 @@ type AgentRunParams = { athleteId: string; kind: AgentKind; trigger: string; use
  */
 export async function runAgentForAthlete(deps: AiDeps, params: AgentRunParams): Promise<AgentRunOutcome> {
   if (!deps.llm) throw aiUnavailable();
-  const run = await agentRunsRepo.start(deps.db, { userId: params.athleteId, kind: params.kind, trigger: params.trigger, model: AGENT_PROFILES[params.kind].model });
+  const run = await agentRunsRepo.start(deps.db, { userId: params.athleteId, kind: params.kind, trigger: params.trigger, model: modelName(deps.llm, params.kind) });
   return executeAgentRun(deps, run, params);
 }
 
@@ -125,7 +128,7 @@ export async function startAnalysisAs(deps: AiDeps, actor: Actor, athleteId: str
   if (running) return { run: toRunView(running), done: Promise.resolve() };
 
   const params = { athleteId: athlete.id, kind, trigger: `manual:${actor.role}:${actor.id}` };
-  const run = await agentRunsRepo.start(deps.db, { userId: athlete.id, kind, trigger: params.trigger, model: AGENT_PROFILES[kind].model });
+  const run = await agentRunsRepo.start(deps.db, { userId: athlete.id, kind, trigger: params.trigger, model: modelName(deps.llm, kind) });
   const done = analysisKickoff(deps.db, params)
     .then((userMessage) => executeAgentRun(deps, run, { ...params, userMessage }))
     .then(

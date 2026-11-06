@@ -15,7 +15,10 @@ export type LlmTextBlockParam = Anthropic.Beta.BetaTextBlockParam;
 export type LlmUsage = Anthropic.Beta.BetaUsage;
 
 export type ModelProfile = {
+  /** Claude model ID (the default provider). */
   model: string;
+  /** Provider-neutral size class: other adapters map it to their own models (e.g. Gemini Flash-Lite / Flash). */
+  tier: 'fast' | 'smart';
   effort: 'low' | 'medium' | 'high';
   maxTokens: number;
   /**
@@ -34,6 +37,8 @@ export type LlmRequest = {
 
 export interface LlmClient {
   create(req: LlmRequest): Promise<LlmMessage>;
+  /** The model this client actually calls for a profile (recorded in agent_runs). Defaults to `profile.model`. */
+  modelFor?(profile: ModelProfile): string;
 }
 
 export type LlmErrorKind = 'rate_limited' | 'overloaded' | 'connection' | 'auth' | 'bad_request' | 'unknown';
@@ -58,6 +63,10 @@ export class AnthropicLlmClient implements LlmClient {
   constructor(apiKey: string, opts: { timeoutMs?: number; maxRetries?: number } = {}) {
     // The SDK already retries 408/409/429/5xx and connection errors with backoff.
     this.client = new Anthropic({ apiKey, timeout: opts.timeoutMs ?? 300_000, maxRetries: opts.maxRetries ?? 3 });
+  }
+
+  modelFor(profile: ModelProfile): string {
+    return profile.model;
   }
 
   async create(req: LlmRequest): Promise<LlmMessage> {

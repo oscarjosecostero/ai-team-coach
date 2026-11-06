@@ -105,7 +105,9 @@ itself within a bounded number of turns.
 - **OpenAI** has the largest ecosystem, mature structured outputs and cheap small models.
   **Gemini** has very large context windows and competitive pricing. All three could build this.
   The differences that mattered here were tool-use reliability, cost per run and prior experience.
-  The LLM sits behind one `LlmClient` interface, so swapping providers is a single adapter.
+  The LLM sits behind one `LlmClient` interface, so a provider is a single adapter. **Gemini is
+  implemented as a second one** (`ai/gemini-client.ts`, `LLM_PROVIDER=gemini`): same loop, tools, fact
+  IDs and guardrails, only the translation of messages and tool calls differs (see `docs/ai.md`).
 
 ### Models, effort and cost
 | Run | Model | Effort | When |

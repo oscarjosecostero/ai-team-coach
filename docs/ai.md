@@ -20,6 +20,7 @@ run = agent_runs row (running) ─► coach-agent loop ─► agent_runs row (su
 | Piece | Role | Can import |
 |---|---|---|
 | `ai/llm-client.ts` | Only file that imports `@anthropic-ai/sdk`. `LlmClient` interface + `AnthropicLlmClient`; maps SDK errors to `LlmError { kind, retryable }`. | the SDK |
+| `ai/gemini-client.ts` | Only file that imports `@google/genai`. `GeminiLlmClient`, a second provider behind the same interface. | the Gemini SDK |
 | `ai/ports.ts` | `CoachDataPort`: the agent's whole world. Read methods plus **one** write, `createProposal`. | types only |
 | `ai/coach-agent.ts` | Manual tool-use loop, bounded by `maxTurns`; append-only history. | `ai/*`, `domain/*` |
 | `ai/tools/` | Fixed allowlist: `get_week_summary`, `get_history`, `get_calendar`, `search_notes`, `create_proposal`. | `ai/*`, `domain/*` |
@@ -75,6 +76,29 @@ On failure the tool returns `is_error: true` with the violations and the compute
 Initial status is `awaiting_coach` when the team has coach review, else `pending`. Every insert writes
 `audit_log` (`actor_type='agent'`, `actor_id='coach-agent-v1'`, `proposal.created`, load impact and
 injury signal in metadata). Accepting stays a human action through the Phase 2 routes.
+
+## Second provider: Gemini
+
+`LLM_PROVIDER` picks the provider at startup (`auto`: Claude when `ANTHROPIC_API_KEY` is set, otherwise
+Gemini when `GEMINI_API_KEY` is set). Nothing outside `ai/gemini-client.ts` changes: the loop, tools,
+fact ledger, guardrails and tests are provider-neutral. The adapter translates the Messages-API shapes
+the loop speaks to Gemini function calling:
+
+- system blocks → `systemInstruction`; tools → `functionDeclarations` with `parametersJsonSchema`
+  (the same JSON Schemas generated from Zod); automatic function calling is disabled, so the loop
+  still validates and runs every call itself.
+- `tool_use` ↔ `functionCall`, `tool_result` ↔ `functionResponse` (matched by name, and by id when
+  Gemini issues one). Gemini's `thoughtSignature` rides on the converted block and is sent back on the
+  next turn, the equivalent of passing Claude's thinking blocks back unchanged.
+- `tier` on each profile picks the model: `fast` → `GEMINI_MODEL_FAST` (default `gemini-2.5-flash-lite`),
+  `smart` → `GEMINI_MODEL_SMART` (default `gemini-2.5-flash`). Effort maps to a thinking budget on 2.x
+  models and to a thinking level on Gemini 3.
+- Finish reasons map to the stop reasons the loop already handles (`MAX_TOKENS` → `max_tokens`, safety
+  blocks → `refusal`), and usage keeps Claude's meaning (input excludes cache reads). `agent_runs.model`
+  records the model actually called.
+
+Caveats: the Gemini API free tier is per project and per model, and its daily limits are low and change
+without notice; each run makes several model calls. The weekly review and daily reseed can use it up.
 
 ## Models, effort and cost
 
