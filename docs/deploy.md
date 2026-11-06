@@ -81,11 +81,26 @@ the first real proposal.
 
 ## 5. Vercel: web
 
-1. **Add New → Project** → import the GitHub repo. **Root Directory: `web`** (keep "Include files
-   outside the root directory" on: the app imports `@coach/contracts` from `packages/`).
-2. Environment variable (Production and Preview): `API_URL=https://<railway-api-domain>`.
-   It is read **at build time** by the rewrite in `web/next.config.ts`, so redeploy after changing it.
-3. Deploy.
+From the dashboard: **Add New → Project** → import the GitHub repo, **Root Directory: `web`** (keep
+"Include files outside the root directory" on: the app imports `@coach/contracts` from `packages/`),
+and the environment variable `API_URL=https://<railway-api-domain>` for Production and Preview. It is
+read **at build time** by the rewrite in `web/next.config.ts`, so redeploy after changing it.
+
+Or with the CLI, from the repo root (what was used for the first deploy):
+
+```bash
+vercel login
+vercel project create ai-team-coach
+vercel link --yes --project ai-team-coach
+vercel project update ai-team-coach --root-directory web --framework nextjs --node-version 24.x --yes
+printf 'https://<railway-api-domain>' | vercel env add API_URL production
+printf 'https://<railway-api-domain>' | vercel env add API_URL preview
+vercel deploy --prod --yes          # uploads the repo minus .vercelignore (no _context/, no .env files)
+vercel git connect --yes            # push-to-deploy; needs GitHub added under Account → Login Connections
+```
+
+`vercel link` appends `.env*` to `.gitignore`; drop that line (it would override `!.env.example`, and
+`.env.*` already ignores `.env.local`).
 
 Timeouts: Vercel's external rewrites wait up to 120 s for the first byte. `POST /analysis/run` answers
 `202` at once (the client polls `GET /analysis/runs/:id`), so the weekly review is never cut off.

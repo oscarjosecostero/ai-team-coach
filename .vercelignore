@@ -1,0 +1,17 @@
+# CLI deploys upload only what the web build needs: web/, packages/, and the workspace manifests.
+_context
+.env
+.env.*
+!.env.example
+**/node_modules
+**/.next
+**/dist
+**/test-results
+**/playwright-report
+web/e2e/screenshots
+api/src
+api/test
+docs
+.github
+Dockerfile
+.dockerignore

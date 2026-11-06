@@ -17,7 +17,10 @@ test("athlete accepts a proposal and the calendar reflects it", async ({ page })
   const banner = page.getByTestId("pending-proposals-banner");
   if (live && !(await banner.isVisible({ timeout: 5_000 }).catch(() => false))) {
     await page.getByTestId("run-analysis").click();
-    await expect(page.getByText(/^Analysis done/)).toBeVisible({ timeout: 4 * 60_000 });
+    const outcome = page.getByText(/^Analysis done|^The analysis did not finish/);
+    await expect(outcome).toBeVisible({ timeout: 4 * 60_000 });
+    // A failed run (e.g. no API credits) fails here, with the reason in GET /api/analysis/runs.
+    await expect(outcome, "the live analysis run failed; check GET /api/analysis/runs for its error").toHaveText(/^Analysis done/);
   }
   await expect(banner).toContainText(live ? /proposals? from your coach/ : "1 proposal from your coach");
   await banner.click();
