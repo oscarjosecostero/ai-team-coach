@@ -20,3 +20,26 @@ export function durationEstimateLoad(input: {
   const intensity = input.rpe ? Math.max(1, Math.min(10, input.rpe)) * 0.5 : INTENSITY_FACTOR[input.intensityClass ?? 'moderate'];
   return Math.round(minutes * sport * intensity * 10) / 10;
 }
+
+/** Default target HR zone (1-5) for a planned workout type; 0 means no load. */
+const DEFAULT_ZONE: Record<string, number> = {
+  rest: 0,
+  recovery: 1,
+  easy: 2,
+  long: 2,
+  strength: 2,
+  brick: 3,
+  tempo: 3.5,
+  intervals: 4,
+};
+
+/**
+ * Planned load uses the same unit as Edwards TRIMP: minutes x zone, scaled by sport factor
+ * for non-endurance work. Keeps planned and actual load directly comparable.
+ */
+export function plannedWorkoutLoad(input: { durationMin: number; workoutType: string; sport: string; targetZone?: number | null }): number {
+  const zone = input.targetZone ?? DEFAULT_ZONE[input.workoutType] ?? 2;
+  if (zone <= 0 || input.durationMin <= 0) return 0;
+  const sportFactor = input.sport === 'strength' ? 0.7 : 1;
+  return Math.round(input.durationMin * zone * sportFactor * 10) / 10;
+}
