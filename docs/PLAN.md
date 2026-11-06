@@ -281,3 +281,4 @@ Strava adapter (personal use only), webhooks, MCP server reusing `ai/tools/regis
 
 - 2026-11-06 — Plan approved. Docker (Colima) verified running. Next: Phase 0.
 - 2026-11-06 — Phase 0 done locally: npm workspaces (api, web, packages/contracts), Fastify `/health` with DB check, Drizzle client, Vitest (unit + integration on Docker PG), ESLint boundary rules, Next.js 16 + Tailwind + shadcn, docker-compose (pgvector pg17), CI workflow. Pending: create public repo, push, confirm CI green.
+- 2026-11-06 — Phase 1 started: pure `api/src/domain/` (zones, load, intensity, fitness, plan-guardrails) with 17 unit tests. Remaining: weekly-summary, Drizzle schema + migrations, seed scenario, FIT/GPX adapter, ingestion/metrics services, pg-boss jobs.
