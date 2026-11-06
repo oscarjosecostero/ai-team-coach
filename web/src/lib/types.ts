@@ -53,6 +53,9 @@ export type WeeklyMetrics = {
   restingHrDelta: number | null;
 };
 
+/** One block of a planned session's intensity profile, computed by the backend (domain/session-shape.ts). */
+export type SessionBlock = { phase: "warmup" | "main" | "work" | "recover" | "cooldown"; minutes: number; zone: number };
+
 export type PlannedWorkout = {
   id: string;
   date: string;
@@ -66,6 +69,7 @@ export type PlannedWorkout = {
   status: "planned" | "completed" | "skipped";
   origin: "seed" | "manual" | "proposal";
   version: number;
+  shape: SessionBlock[];
 };
 
 export type Checkin = { id: string; date: string; restingHr: number | null; sleepHours: number | null; fatigue: number | null; soreness: number | null; note: string | null };
@@ -102,6 +106,8 @@ export type Proposal = {
   createdAt: string;
   decidedAt: string | null;
   workout: (Omit<PlannedWorkout, "status" | "origin"> & { version: number }) | null;
+  /** The workout as it would be after the change, applied by the backend. */
+  proposed: Omit<PlannedWorkout, "id" | "status" | "origin" | "version"> | null;
 };
 
 export type AgentRun = {

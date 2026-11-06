@@ -304,8 +304,13 @@ describe('UI-facing enrichments', () => {
 
     const { proposals: list } = (await get('/proposals?status=pending', carlosCookie)).json();
     expect(list[0]).toMatchObject({ athleteName: 'Carlos Ruiz', workout: { date: '2026-11-12', workoutType: 'intervals', durationMin: 60, plannedLoad: 240, version: 1 } });
+    // The backend also returns the workout as it would be after the change, both with their intensity profile.
+    expect(list[0].proposed).toMatchObject({ date: '2026-11-12', workoutType: 'intervals', durationMin: 45 });
+    expect(list[0].proposed.plannedLoad).toBeLessThan(240);
+    for (const w of [list[0].workout, list[0].proposed]) expect(w.shape.reduce((s: number, b: { minutes: number }) => s + b.minutes, 0)).toBe(w.durationMin);
 
     const cal = (await get('/calendar?from=2026-11-07&to=2026-11-15', carlosCookie)).json();
+    expect(cal.workouts.every((w: { shape: unknown[]; workoutType: string }) => Array.isArray(w.shape) && (w.workoutType === 'rest') === (w.shape.length === 0))).toBe(true);
     expect(cal.weeks).toEqual([
       { weekStart: '2026-11-02', plannedLoad: 480 },
       { weekStart: '2026-11-09', plannedLoad: 1041 },

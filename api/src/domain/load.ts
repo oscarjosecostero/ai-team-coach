@@ -37,8 +37,10 @@ const DEFAULT_ZONE: Record<string, number> = {
  * Planned load uses the same unit as Edwards TRIMP: minutes x zone, scaled by sport factor
  * for non-endurance work. Keeps planned and actual load directly comparable.
  */
+export const defaultZoneFor = (workoutType: string): number => DEFAULT_ZONE[workoutType] ?? 2;
+
 export function plannedWorkoutLoad(input: { durationMin: number; workoutType: string; sport: string; targetZone?: number | null }): number {
-  const zone = input.targetZone ?? DEFAULT_ZONE[input.workoutType] ?? 2;
+  const zone = input.targetZone ?? defaultZoneFor(input.workoutType);
   if (zone <= 0 || input.durationMin <= 0) return 0;
   const sportFactor = input.sport === 'strength' ? 0.7 : 1;
   return Math.round(input.durationMin * zone * sportFactor * 10) / 10;

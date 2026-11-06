@@ -30,7 +30,7 @@ export function AnalysisCard({ athleteId }: { athleteId: string }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Sparkles className="size-4" aria-hidden /> Coach summary
+          <Sparkles className="size-4 text-primary" aria-hidden /> Coach summary
         </CardTitle>
         <CardDescription>{latest ? `${KIND[latest.kind]} · ${new Date(latest.startedAt).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })} · ${latest.model}` : "No analysis yet."}</CardDescription>
         <CardAction>

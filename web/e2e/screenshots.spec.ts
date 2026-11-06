@@ -19,6 +19,8 @@ for (const scheme of ["light", "dark"] as const) {
     await page.waitForTimeout(500);
     await page.screenshot({ path: `e2e/screenshots/${scheme}-dashboard.png`, fullPage: true });
     await page.goto("/proposals");
+    await page.getByTestId("proposal-card").first().waitFor();
+    await page.screenshot({ path: `e2e/screenshots/${scheme}-proposals.png`, fullPage: true });
     await page.getByRole("tab", { name: "History" }).click();
     await page.getByTestId("proposal-card").first().waitFor();
     await page.screenshot({ path: `e2e/screenshots/${scheme}-proposal-history.png`, fullPage: true });

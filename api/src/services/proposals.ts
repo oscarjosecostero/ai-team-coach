@@ -2,6 +2,7 @@ import { proposedChangeSchema, type CoachReviewRequest, type ProposedChange } fr
 import type { Db } from '../db/client.js';
 import { toIsoDate } from '../domain/dates.js';
 import { applyProposedChange, validateChangeShape, type WorkoutFields } from '../domain/proposal-change.js';
+import { sessionShape, type SessionBlock } from '../domain/session-shape.js';
 import type { Actor, Clock } from '../lib/actor.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { auditRepo } from '../repositories/audit.js';
@@ -43,10 +44,15 @@ async function assertCanSee(db: Db, actor: Actor, p: ProposalRow): Promise<void>
   throw notFound('Proposal'); // do not reveal that it exists
 }
 
-/** A proposal as the UI needs it: plus the target workout as it is now, and whose proposal it is. */
+/**
+ * A proposal as the UI needs it: whose it is, the target workout as it is now, and the workout as it
+ * would be after the change (applied by the same domain function that accept uses), each with its
+ * schematic intensity profile.
+ */
 export type ProposalView = ProposalRow & {
   athleteName: string;
-  workout: (WorkoutFields & { id: string; plannedLoad: number; version: number }) | null;
+  workout: (WorkoutFields & { id: string; plannedLoad: number; version: number; shape: SessionBlock[] }) | null;
+  proposed: (WorkoutFields & { plannedLoad: number; shape: SessionBlock[] }) | null;
 };
 
 export async function toProposalViews(db: Db, rows: ProposalRow[]): Promise<ProposalView[]> {
@@ -55,7 +61,15 @@ export async function toProposalViews(db: Db, rows: ProposalRow[]): Promise<Prop
   for (const id of new Set(rows.map((r) => r.userId))) names.set(id, (await usersRepo.findById(db, id))?.name ?? 'Unknown');
   return rows.map((p) => {
     const w = workouts.get(p.plannedWorkoutId);
-    return { ...p, athleteName: names.get(p.userId)!, workout: w ? { id: w.id, ...snapshot(w) } : null };
+    if (!w) return { ...p, athleteName: names.get(p.userId)!, workout: null, proposed: null };
+    const change = proposedChangeSchema.safeParse(p.proposedChange);
+    const next = change.success ? applyProposedChange(workoutFields(w), p.changeType, change.data) : null;
+    return {
+      ...p,
+      athleteName: names.get(p.userId)!,
+      workout: { id: w.id, ...snapshot(w), shape: sessionShape(w) },
+      proposed: next ? { ...next, shape: sessionShape(next) } : null,
+    };
   });
 }
 

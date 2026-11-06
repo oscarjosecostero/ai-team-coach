@@ -1,6 +1,7 @@
 import type { Db } from '../db/client.js';
 import { addDays, daysBetween, toIsoDate, weekStartOf } from '../domain/dates.js';
 import { plannedLoadByWeek } from '../domain/plan-load.js';
+import { sessionShape } from '../domain/session-shape.js';
 import type { Actor, Clock } from '../lib/actor.js';
 import { activitiesRepo } from '../repositories/activities.js';
 import { athletesRepo } from '../repositories/athletes.js';
@@ -9,6 +10,9 @@ import { plannedWorkoutsRepo } from '../repositories/planned-workouts.js';
 import { proposalsRepo } from '../repositories/proposals.js';
 import { weeklyMetricsRepo } from '../repositories/weekly-metrics.js';
 import { authorizeAthleteAccess } from './access.js';
+
+/** A planned workout plus its schematic intensity profile (see domain/session-shape.ts). */
+const withShape = <W extends { workoutType: string; durationMin: number; targetZone: number | null }>(w: W) => ({ ...w, shape: sessionShape(w) });
 
 /** Everything the dashboard shows is read from stored, backend-computed values. */
 export async function getDashboard(deps: { db: Db; now: Clock }, actor: Actor, athleteId: string) {
@@ -36,7 +40,7 @@ export async function getDashboard(deps: { db: Db; now: Clock }, actor: Actor, a
     currentWeek: metrics.find((m) => m.weekStart === thisWeek) ?? null,
     previousWeek: metrics.find((m) => m.weekStart === addDays(thisWeek, -7)) ?? null,
     weeklyHistory: metrics,
-    upcomingWorkouts: upcoming,
+    upcomingWorkouts: upcoming.map(withShape),
     latestCheckin: checkins.at(-1) ?? null,
     pendingProposals: open.length,
   };
@@ -44,7 +48,7 @@ export async function getDashboard(deps: { db: Db; now: Clock }, actor: Actor, a
 
 export async function getCalendar(deps: { db: Db }, actor: Actor, athleteId: string, from: string, to: string) {
   const athlete = await authorizeAthleteAccess(deps.db, actor, athleteId);
-  return plannedWorkoutsRepo.listRange(deps.db, athlete.id, from, to);
+  return (await plannedWorkoutsRepo.listRange(deps.db, athlete.id, from, to)).map(withShape);
 }
 
 /** Planned load per Monday week, over whole weeks so a range starting mid-week still totals correctly. */

@@ -6,19 +6,23 @@ import { AcwrMeter, StatTile, type Delta } from "@/components/charts/stat-tile";
 import { SegmentedBar, ZONE_COLORS } from "@/components/charts/segmented-bar";
 import { FitnessChart, WeeklyLoadChart } from "@/components/charts/trend-charts";
 import { useSession } from "@/components/shell/session";
+import { SportIcon } from "@/components/sport";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { fmtDate, fmtDuration, fmtKm, fmtMinutes, fmtNum, fmtPace, fmtSigned, SPORT_LABEL, TYPE_LABEL } from "@/lib/format";
-import { useDashboard } from "@/lib/queries";
+import { fmtDate, fmtDuration, fmtKm, fmtNum, fmtPace, fmtSigned, SPORT_LABEL } from "@/lib/format";
+import { useDashboard, useProposals } from "@/lib/queries";
 import type { Activity, Dashboard } from "@/lib/types";
 import { AnalysisCard } from "./analysis-card";
 import { CheckinForm } from "./checkin-form";
+import { TodayCard } from "./today-card";
 import { UploadCard } from "./upload-card";
 
 export function DashboardView() {
   const { user, athleteId } = useSession();
   const dash = useDashboard(athleteId);
+  const isCoach = user?.role === "coach";
+  const open = useProposals(athleteId, isCoach ? ["awaiting_coach", "pending"] : ["pending"], Boolean(athleteId));
 
   if (!athleteId || dash.isPending) return <DashboardSkeleton />;
   if (dash.isError || !dash.data) return <p className="text-sm text-muted-foreground">Could not load the dashboard.</p>;
@@ -29,45 +33,47 @@ export function DashboardView() {
     <div className="space-y-6" data-testid="dashboard">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight">{isSelf ? `Hi ${d.athlete.name.split(" ")[0]}` : d.athlete.name}</h1>
+          <h1 className="text-2xl font-extrabold tracking-tight">{isSelf ? `Hi ${d.athlete.name.split(" ")[0]}` : d.athlete.name}</h1>
           <p className="text-sm text-muted-foreground">
             {d.profile?.goal}
             {d.profile?.raceName && d.daysToRace !== null && (
               <>
                 {" · "}
-                <span className="text-foreground">{d.profile.raceName}</span> in {d.daysToRace} days
+                <span className="font-semibold text-foreground">{d.profile.raceName}</span> in {d.daysToRace} days
               </>
             )}
           </p>
         </div>
         {d.pendingProposals > 0 && isSelf && (
-          <Link href="/proposals" className="flex items-center gap-2 rounded-lg border bg-card px-3 py-2 text-sm font-medium shadow-xs hover:bg-muted" data-testid="pending-proposals-banner">
-            <Inbox className="size-4" aria-hidden />
+          <Link href="/proposals" className="brand-edge flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold shadow-xs hover:brightness-[0.98]" data-testid="pending-proposals-banner">
+            <Inbox className="size-4 text-primary" aria-hidden />
             {d.pendingProposals === 1 ? "1 proposal from your coach" : `${d.pendingProposals} proposals from your coach`}
             <span aria-hidden>→</span>
           </Link>
         )}
       </div>
 
-      <KpiRow d={d} />
-
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <AnalysisCard athleteId={d.athlete.id} />
-        <LatestActivity activity={d.latestActivity} />
+      <div className="grid gap-4 lg:grid-cols-[1.5fr_1fr]">
+        <TodayCard key={d.today} today={d.today} workouts={d.upcomingWorkouts} proposals={open.data ?? []} reviewHref={isSelf ? "/proposals" : "/team"} />
+        <div className="space-y-4">
+          <AnalysisCard athleteId={d.athlete.id} />
+          <LatestActivity activity={d.latestActivity} />
+        </div>
       </div>
+
+      <KpiRow d={d} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <WeeklyLoadChart weeks={d.weeklyHistory} currentWeekStart={d.currentWeek?.weekStart ?? ""} />
         <FitnessChart weeks={d.weeklyHistory} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <Upcoming d={d} />
-        <div className="space-y-4">
-          {isSelf && <UploadCard />}
-          {isSelf && <CheckinForm key={d.latestCheckin?.id ?? "none"} latest={d.latestCheckin} today={d.today} />}
+      {isSelf && (
+        <div className="grid gap-4 lg:grid-cols-2">
+          <UploadCard />
+          <CheckinForm key={d.latestCheckin?.id ?? "none"} latest={d.latestCheckin} today={d.today} />
         </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -139,7 +145,7 @@ function LatestActivity({ activity: a }: { activity: Activity | null }) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          Latest activity {a.intensityClass && <Badge variant={a.intensityClass === "hard" ? "default" : "secondary"}>{a.intensityClass}</Badge>}
+          <SportIcon sport={a.sport} className="size-7" /> Latest activity {a.intensityClass && <Badge variant={a.intensityClass === "hard" ? "default" : "secondary"}>{a.intensityClass}</Badge>}
         </CardTitle>
         <CardDescription>
           {SPORT_LABEL[a.sport]} · {fmtDate(a.startedAt.slice(0, 10))}
@@ -162,32 +168,6 @@ function LatestActivity({ activity: a }: { activity: Activity | null }) {
           </div>
         )}
         {a.notes && <p className="border-l-2 pl-3 text-sm text-muted-foreground italic">“{a.notes}”</p>}
-      </CardContent>
-    </Card>
-  );
-}
-
-function Upcoming({ d }: { d: Dashboard }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Coming up</CardTitle>
-        <CardDescription>
-          The next seven days of the plan. <Link href="/calendar" className="underline underline-offset-4">Full calendar</Link>
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <ul className="divide-y">
-          {d.upcomingWorkouts.slice(0, 7).map((w) => (
-            <li key={w.id} className="flex items-center gap-3 py-2 text-sm">
-              <span className="w-24 shrink-0 text-muted-foreground">{fmtDate(w.date)}</span>
-              <span className="min-w-0 flex-1 truncate">
-                {w.title} {w.origin === "proposal" && <Badge variant="outline">updated</Badge>}
-              </span>
-              <span className="shrink-0 text-muted-foreground">{w.workoutType === "rest" ? "Rest" : `${TYPE_LABEL[w.workoutType]} · ${fmtMinutes(w.durationMin)}`}</span>
-            </li>
-          ))}
-        </ul>
       </CardContent>
     </Card>
   );

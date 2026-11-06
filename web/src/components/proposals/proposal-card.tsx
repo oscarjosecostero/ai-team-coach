@@ -2,7 +2,9 @@
 
 import { ArrowRight } from "lucide-react";
 import { useState, type ReactNode } from "react";
+import { SessionProfile } from "@/components/charts/session-profile";
 import { CitedText } from "@/components/cited-text";
+import { SportIcon } from "@/components/sport";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -25,13 +27,7 @@ function describe(w: { workoutType: string; sport: string; durationMin: number; 
 export function ProposalCard({ p, actions, showAthlete }: { p: Proposal; actions?: (note: string) => ReactNode; showAthlete?: boolean }) {
   const [note, setNote] = useState("");
   const w = p.workout;
-  const after = w
-    ? {
-        ...w,
-        ...(p.changeType === "rest" ? { workoutType: "rest", durationMin: 0, title: p.proposedChange.title ?? "Rest day" } : {}),
-        ...Object.fromEntries(Object.entries(p.proposedChange).filter(([, v]) => v !== undefined)),
-      }
-    : null;
+  const after = p.proposed;
   const impact = p.evidence.find((f) => f.id.endsWith(":planned_load_after"));
   const before = p.evidence.find((f) => f.id.endsWith(":planned_load_before"));
   const decided = p.status !== "pending" && p.status !== "awaiting_coach";
@@ -51,27 +47,18 @@ export function ProposalCard({ p, actions, showAthlete }: { p: Proposal; actions
       <CardContent className="space-y-5">
         {w && after && p.status === "accepted" && (
           // After acceptance the workout already IS the proposed version; the before/after loads stay in the evidence.
-          <div className="rounded-lg border px-3 py-2">
-            <div className="text-xs text-muted-foreground">Applied to your plan</div>
-            <div className="text-sm font-medium">{w.title}</div>
-            <div className="text-sm text-muted-foreground">{describe(w)}</div>
-          </div>
+          <Side label="Applied to your plan" w={w} load={impact ? Number(impact.value) : null} />
         )}
         {w && after && p.status !== "accepted" && (
-          <div className="grid items-center gap-2 sm:grid-cols-[1fr_auto_1fr]">
-            <div className="rounded-lg border px-3 py-2">
-              <div className="text-xs text-muted-foreground">Now</div>
-              <div className="text-sm font-medium">{w.title}</div>
-              <div className="text-sm text-muted-foreground">{describe(w)}</div>
-              {before && <div className="text-xs text-muted-foreground tabular-nums">week planned load {fmtNum(Number(before.value))} TRIMP</div>}
-            </div>
-            <ArrowRight className="mx-auto size-4 rotate-90 text-muted-foreground sm:rotate-0" aria-hidden />
-            <div className="rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
-              <div className="text-xs text-muted-foreground">Proposed{p.proposedChange.date && p.proposedChange.date !== w.date ? ` · ${fmtDate(p.proposedChange.date)}` : ""}</div>
-              <div className="text-sm font-medium">{String(after.title)}</div>
-              <div className="text-sm text-muted-foreground">{describe(after as typeof w)}</div>
-              {impact && <div className="text-xs text-muted-foreground tabular-nums">week planned load {fmtNum(Number(impact.value))} TRIMP</div>}
-            </div>
+          <div className="grid items-stretch gap-3 sm:grid-cols-[1fr_auto_1fr]" data-testid="proposal-diff">
+            <Side label="Now" w={w} load={before ? Number(before.value) : null} />
+            <ArrowRight className="m-auto size-5 rotate-90 text-primary sm:rotate-0" aria-hidden />
+            <Side
+              label={`Proposed${after.date !== w.date ? ` · ${fmtDate(after.date)}` : ""}`}
+              w={after}
+              load={impact ? Number(impact.value) : null}
+              highlight
+            />
           </div>
         )}
         <CitedText text={p.reason} citations={p.evidence} className="text-sm leading-relaxed" />
@@ -83,5 +70,23 @@ export function ProposalCard({ p, actions, showAthlete }: { p: Proposal; actions
       </CardContent>
       {actions && !decided && <CardFooter className="flex flex-wrap gap-2 border-t py-3">{actions(note)}</CardFooter>}
     </Card>
+  );
+}
+
+/** One side of the change: the session, its intensity profile (backend-computed) and the week's planned load. */
+function Side({ label, w, load, highlight }: { label: string; w: NonNullable<Proposal["proposed"]>; load: number | null; highlight?: boolean }) {
+  return (
+    <div className={highlight ? "brand-edge space-y-3 rounded-xl px-3 py-3" : "space-y-3 rounded-xl border px-3 py-3"}>
+      <div className="flex items-center gap-2.5">
+        <SportIcon sport={w.sport} rest={w.workoutType === "rest"} />
+        <div className="min-w-0">
+          <div className="eyebrow">{label}</div>
+          <div className="truncate text-sm font-bold">{w.title}</div>
+          <div className="text-sm text-muted-foreground">{describe(w)}</div>
+        </div>
+      </div>
+      <SessionProfile blocks={w.shape} height={64} />
+      {load !== null && <div className="text-xs text-muted-foreground tabular-nums">Week planned load {fmtNum(load)} TRIMP</div>}
+    </div>
   );
 }
