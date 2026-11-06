@@ -42,7 +42,12 @@ export async function sendChatMessage(deps: AiDeps, actor: Actor, message: strin
     userMessage: message,
     history: history.map((m) => ({ role: m.role, content: m.content })),
   });
-  if (result.status === 'failed') throw aiFailed('The coach could not answer right now. Please try again.', { runId: run.id, code: result.error?.code });
+  if (result.status === 'failed') {
+    // A provider quota (e.g. the Gemini free tier's daily cap) will not clear on an immediate retry; say so.
+    const quota = result.error?.code === 'llm_error' && result.error.message.startsWith('rate_limited');
+    const msg = quota ? 'The AI provider’s usage limit has been reached. Please try again later.' : 'The coach could not answer right now. Please try again.';
+    throw aiFailed(msg, { runId: run.id, code: result.error?.code });
+  }
 
   const reply = await chatMessagesRepo.insert(deps.db, { userId: actor.id, role: 'assistant', content: result.text, agentRunId: run.id });
   return {

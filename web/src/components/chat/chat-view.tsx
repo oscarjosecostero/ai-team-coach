@@ -37,7 +37,6 @@ export function ChatView() {
         void invalidate();
       }
     },
-    onError: (err) => toast.error(errorMessage(err)),
     onSettled: async () => {
       await qc.invalidateQueries({ queryKey: keys.chat });
       setPendingQuestion(null);
@@ -102,6 +101,14 @@ export function ChatView() {
                 <p className="text-muted-foreground">Looking at your data…</p>
               </Bubble>
             </>
+          )}
+          {send.isError && !pendingQuestion && (
+            // The question is kept in the history; the failure shows where the answer would have been.
+            <Bubble role="assistant">
+              <p role="alert" className="text-destructive">
+                {errorMessage(send.error)}
+              </p>
+            </Bubble>
           )}
           <div ref={bottom} />
         </CardContent>

@@ -1,6 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import type { LlmClient, LlmRequest } from '../../src/ai/llm-client.js';
+import { LlmError, type LlmClient, type LlmRequest } from '../../src/ai/llm-client.js';
 import { buildApp } from '../../src/app.js';
 import { chatMessages, knowledgeChunks, proposals, teams } from '../../src/db/schema.js';
 import { EmbeddingError, type EmbeddingProvider } from '../../src/integrations/embeddings/embedding-provider.js';
@@ -117,6 +117,15 @@ describe('POST /chat', () => {
     expect(res.json().error.code).toBe('ai_failed');
     const rows = await db.select().from(chatMessages);
     expect(rows.map((r) => r.role)).toEqual(['user']);
+  });
+
+  it('says when the provider quota is used up instead of asking for an immediate retry', async () => {
+    llm.script = new ScriptedLlm(() => {
+      throw new LlmError('Quota exceeded', 'rate_limited', true, 429);
+    });
+    const res = await post('/chat', carlosCookie, { message: 'Am I ready?' });
+    expect(res.statusCode).toBe(502);
+    expect(res.json().error.message).toMatch(/usage limit/);
   });
 });
 
