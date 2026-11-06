@@ -3,7 +3,7 @@ import { buildApp } from '../../src/app.js';
 import { createDb } from '../../src/db/client.js';
 
 const database = createDb(process.env.DATABASE_URL ?? 'postgres://coach:coach@localhost:5432/coach');
-const app = buildApp({ database });
+const app = buildApp({ database, jobs: { enqueueMetricsRecompute: async () => {} }, jwtSecret: 'test-secret-test-secret' });
 
 afterAll(async () => {
   await app.close();

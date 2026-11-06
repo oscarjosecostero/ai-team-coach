@@ -1,4 +1,4 @@
-import { and, asc, eq, lte } from 'drizzle-orm';
+import { and, asc, desc, eq, lte } from 'drizzle-orm';
 import type { Db } from '../db/client.js';
 import { activities } from '../db/schema.js';
 
@@ -24,5 +24,9 @@ export const activitiesRepo = {
       .from(activities)
       .where(and(eq(activities.userId, userId), lte(activities.startedAt, until)))
       .orderBy(asc(activities.startedAt));
+  },
+
+  async listRecent(db: Db, userId: string, limit: number): Promise<ActivityRow[]> {
+    return db.select().from(activities).where(eq(activities.userId, userId)).orderBy(desc(activities.startedAt)).limit(limit);
   },
 };
