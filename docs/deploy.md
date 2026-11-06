@@ -3,6 +3,12 @@
 Web on Vercel, API and worker on Railway, Postgres with pgvector on Railway. Each platform deploys
 from GitHub, so pushing to `main` redeploys everything.
 
+Push-to-deploy needs GitHub linked on both platforms, not just the app installed on the repo:
+Railway → Account → Integrations → GitHub (connected + Railway App installed), then
+`railway service source connect --repo <owner>/<repo> --branch main --service <api|worker>`;
+Vercel → Account Settings → Authentication → Login Connections → GitHub, then `vercel git connect`.
+Without it, a public repo still deploys once from the CLI, but pushes trigger nothing.
+
 ```
 browser ──► Vercel (Next.js, web/) ──/api/* rewrite──► Railway "api" (Dockerfile, node dist/server.js)
                                                        Railway "worker" (same image, node dist/worker.js)
