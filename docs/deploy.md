@@ -19,12 +19,15 @@ httpOnly session cookie is first-party and no CORS is needed.
 
 ## 2. Railway: API service
 
-1. **New service → GitHub repo** `oscarjosecostero/ai-team-coach`. Railway detects the root `Dockerfile`.
+1. **New service → GitHub repo** `oscarjosecostero/ai-team-coach`. Railway detects the root `Dockerfile`
+   (check the build log starts with the Dockerfile stages, not "Railpack"; a service whose builder was
+   switched to Railpack fails with "No start command detected"). After changing service settings,
+   trigger a **new deployment**: "Redeploy" replays the previous deployment's settings.
 2. Variables:
 
    | Variable | Value |
    |---|---|
-   | `DATABASE_URL` | reference the database's private URL, e.g. `${{pgvector.DATABASE_URL}}` |
+   | `DATABASE_URL` | reference the database's private URL: `${{pgvector.DATABASE_URL_PRIVATE}}` |
    | `JWT_SECRET` | a long random string (`openssl rand -base64 48`) |
    | `NODE_ENV` | `production` (secure cookies) |
    | `ANTHROPIC_API_KEY` | Claude API key (without it, analysis and chat return 503) |
@@ -41,8 +44,10 @@ httpOnly session cookie is first-party and no CORS is needed.
 
 1. **New service → same GitHub repo** (same image).
 2. Settings → Deploy → **Custom start command:** `node dist/worker.js`. No public domain.
-3. Variables: the same as the API (`DATABASE_URL`, `JWT_SECRET`, `NODE_ENV`, `ANTHROPIC_API_KEY`,
-   `VOYAGE_API_KEY`, `SEED_PASSWORD`), plus:
+3. Variables: the same as the API, as references so secrets live in one place
+   (`DATABASE_URL=${{pgvector.DATABASE_URL_PRIVATE}}`, `NODE_ENV=production`, `JWT_SECRET=${{api.JWT_SECRET}}`,
+   `ANTHROPIC_API_KEY=${{api.ANTHROPIC_API_KEY}}`, `VOYAGE_API_KEY=${{api.VOYAGE_API_KEY}}`,
+   `SEED_PASSWORD=${{api.SEED_PASSWORD}}`), plus:
 
    | Variable | Value |
    |---|---|
@@ -57,11 +62,18 @@ every athlete Sundays 18:00.
 
 ## 4. Seed the production database (once)
 
-The worker's first scheduled reseed would do it at 04:00 UTC. To seed right away, open a shell on the
-API service (Railway → service → **⋯ → Shell**, or `railway ssh`) and run:
+The worker's first scheduled reseed would do it at 04:00 UTC. To seed right away, either run it from
+your machine against the database's public URL (Railway injects `DATABASE_URL`, which takes precedence
+over `.env`; slow, a few minutes, because every insert crosses the internet):
 
 ```bash
-node dist/scripts/seed.js --reset
+railway run --service pgvector -- npm run db:seed --workspace api -- --reset
+```
+
+or inside the API container (`railway ssh` needs an SSH key registered with `railway ssh keys add`):
+
+```bash
+railway ssh --service api -- node dist/scripts/seed.js --reset
 ```
 
 Then log in as Carlos and press **Run analysis** (or wait for the reseed's post-activity checks) to get
