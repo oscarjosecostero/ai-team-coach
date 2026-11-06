@@ -7,8 +7,6 @@ or the coach first) accepts or rejects them. Nothing changes in the plan without
 > **The backend calculates, the LLM interprets, the agent only proposes, a human decides.**
 
 **Live demo:** [ai-team-coach.vercel.app](https://ai-team-coach.vercel.app) — one-click demo logins, no sign-up.
-The live demo currently runs the agent on Google Gemini (`LLM_PROVIDER=gemini`, the second adapter behind
-the same `LlmClient`); Claude is the designed default and takes over with `LLM_PROVIDER=auto`.
 The demo data is reseeded every day at 04:00 UTC.
 
 | Account | Story in the seed data |
